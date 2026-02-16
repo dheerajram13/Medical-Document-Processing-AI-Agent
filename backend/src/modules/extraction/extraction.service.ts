@@ -33,7 +33,7 @@ export class ExtractionService {
 
   // Claude configuration
   private claudeClient: Anthropic | null = null;
-  private claudeModel = 'claude-3-5-sonnet-20241022';
+  private claudeModel = 'claude-3-haiku-20240307';
 
   constructor(private configService: ConfigService) {
     // Determine which AI provider to use

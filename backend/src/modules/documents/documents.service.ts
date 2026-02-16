@@ -4,6 +4,8 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { OcrService } from '../ocr/ocr.service';
 import { ExtractionService } from '../extraction/extraction.service';
 
+type ExtractedLookupColumn = 'patient_name' | 'source_contact' | 'assigned_doctor';
+
 @Injectable()
 export class DocumentsService {
   private readonly logger = new Logger(DocumentsService.name);
@@ -40,6 +42,8 @@ export class DocumentsService {
     documentId: string;
     ocrResult: any;
     extractedData: any;
+    aiExtractionFailed?: boolean;
+    aiErrorMessage?: string;
   }> {
     this.logger.log(`Starting document processing: ${file.originalname}`);
 
@@ -60,22 +64,63 @@ export class DocumentsService {
 
       // Step 3: Run OCR extraction
       this.logger.log('Running OCR extraction...');
-      const ocrResult = await this.ocrService.extractText(
-        file.buffer,
-        file.mimetype,
-      );
-      this.logger.log(
-        `OCR completed: ${ocrResult.pages} pages, ${ocrResult.confidence * 100}% confidence`,
-      );
+      let ocrResult;
+      try {
+        ocrResult = await this.ocrService.extractText(
+          file.buffer,
+          file.mimetype,
+        );
+        this.logger.log(
+          `OCR completed: ${ocrResult.pages} pages, ${ocrResult.confidence * 100}% confidence`,
+        );
+      } catch (error) {
+        this.logger.error(`Azure OCR failed: ${error.message}`);
+        throw new Error(`Azure OCR extraction failed: ${error.message}`);
+      }
 
-      // Step 4: Run AI field extraction
+      // Step 4: Run AI field extraction (with graceful degradation)
       this.logger.log('Running AI field extraction...');
-      const aiResult = await this.extractionService.extractMedicalFields(
-        ocrResult.text,
-      );
-      this.logger.log(
-        `AI extraction completed: ${aiResult.extractedFields.patientName}`,
-      );
+      let aiResult;
+      let aiExtractionFailed = false;
+      let aiErrorMessage = '';
+
+      try {
+        aiResult = await this.extractionService.extractMedicalFields(
+          ocrResult.text,
+        );
+        this.logger.log(
+          `AI extraction completed: ${aiResult.extractedFields.patientName}`,
+        );
+      } catch (error) {
+        aiExtractionFailed = true;
+        aiErrorMessage = error.message;
+        this.logger.warn(`AI extraction failed: ${error.message}. Document will be saved with OCR data only for manual review.`);
+
+        // Create empty extracted fields for manual entry
+        aiResult = {
+          extractedFields: {
+            patientName: null,
+            patientNameConfidence: 0,
+            reportDate: null,
+            reportDateConfidence: 0,
+            subject: 'Manual Review Required',
+            subjectConfidence: 0,
+            sourceContact: null,
+            sourceContactConfidence: 0,
+            storeIn: 'Investigations',
+            storeInConfidence: 0,
+            assignedDoctor: null,
+            assignedDoctorConfidence: 0,
+            category: 'Uncategorized',
+            categoryConfidence: 0,
+          },
+          rawResponse: {
+            provider: 'none',
+            error: aiErrorMessage,
+            fallbackReason: 'AI extraction failed, manual review required',
+          },
+        };
+      }
 
       // Step 5: Save extracted data to database
       const extractedDataId = await this.saveExtractedData(
@@ -97,6 +142,8 @@ export class DocumentsService {
           confidence: ocrResult.confidence,
         },
         extractedData: aiResult.extractedFields,
+        aiExtractionFailed,
+        aiErrorMessage: aiExtractionFailed ? aiErrorMessage : undefined,
       };
     } catch (error) {
       this.logger.error(
@@ -240,7 +287,12 @@ export class DocumentsService {
       throw new Error(`Failed to get document: ${error.message}`);
     }
 
-    return data;
+    const fileSignedUrl = await this.createSignedFileUrl(data.file_path);
+
+    return {
+      ...data,
+      file_signed_url: fileSignedUrl,
+    };
   }
 
   /**
@@ -326,7 +378,7 @@ export class DocumentsService {
   }
 
   /**
-   * Approve document (mark as completed, ready for PMS import)
+   * Approve document (mark as completed)
    */
   async approveDocument(documentId: string): Promise<void> {
     this.logger.log(`Approving document: ${documentId}`);
@@ -347,6 +399,36 @@ export class DocumentsService {
     await this.createAuditLog(documentId, 'approved');
 
     this.logger.log('Document approved successfully');
+  }
+
+  /**
+   * Lookup helpers for review form dropdown/search fields.
+   */
+  async getPatientLookup(query = ''): Promise<string[]> {
+    const fromPatientsTable = await this.getLookupFromTable('patients', 'full_name', query);
+    if (fromPatientsTable.length > 0) {
+      return fromPatientsTable;
+    }
+
+    return this.getLookupFromExtractedData('patient_name', query);
+  }
+
+  async getDoctorLookup(query = ''): Promise<string[]> {
+    const fromDoctorsTable = await this.getLookupFromTable('doctors', 'full_name', query, true);
+    if (fromDoctorsTable.length > 0) {
+      return fromDoctorsTable;
+    }
+
+    return this.getLookupFromExtractedData('assigned_doctor', query);
+  }
+
+  async getSourceContactLookup(query = ''): Promise<string[]> {
+    const fromSourceContactsTable = await this.getLookupFromTable('source_contacts', 'name', query);
+    if (fromSourceContactsTable.length > 0) {
+      return fromSourceContactsTable;
+    }
+
+    return this.getLookupFromExtractedData('source_contact', query);
   }
 
   /**
@@ -395,5 +477,121 @@ export class DocumentsService {
       this.logger.error(`Failed to create audit log: ${error.message}`);
       // Don't throw - audit log failure shouldn't break the main operation
     }
+  }
+
+  private async getLookupFromTable(
+    tableName: 'patients' | 'doctors' | 'source_contacts',
+    column: string,
+    query: string,
+    activeOnly = false,
+  ): Promise<string[]> {
+    let builder = this.supabase.from(tableName).select(column).limit(20);
+
+    if (query) {
+      builder = builder.ilike(column, `%${query}%`);
+    }
+
+    if (activeOnly) {
+      builder = builder.eq('active', true);
+    }
+
+    const { data, error } = await builder;
+
+    if (error) {
+      // Some environments may not have these lookup tables yet.
+      if (error.code === 'PGRST205' || /does not exist|relation/i.test(error.message)) {
+        this.logger.warn(`Lookup table unavailable (${tableName}), falling back to extracted_data.`);
+        return [];
+      }
+      throw new Error(`Failed lookup on ${tableName}.${column}: ${error.message}`);
+    }
+
+    const rows = Array.isArray(data)
+      ? (data as unknown as Array<Record<string, unknown>>)
+      : [];
+
+    return this.normalizeLookupValues(
+      rows.map((row) => (typeof row[column] === 'string' ? (row[column] as string) : null)),
+    );
+  }
+
+  private async getLookupFromExtractedData(
+    column: ExtractedLookupColumn,
+    query: string,
+  ): Promise<string[]> {
+    let builder = this.supabase
+      .from('extracted_data')
+      .select(column)
+      .not(column, 'is', null)
+      .limit(200);
+
+    if (query) {
+      builder = builder.ilike(column, `%${query}%`);
+    }
+
+    const { data, error } = await builder;
+
+    if (error) {
+      throw new Error(`Failed fallback lookup for ${column}: ${error.message}`);
+    }
+
+    const rows = Array.isArray(data)
+      ? (data as unknown as Array<Record<string, unknown>>)
+      : [];
+
+    return this.normalizeLookupValues(
+      rows.map((row) => (typeof row[column] === 'string' ? (row[column] as string) : null)),
+    ).slice(0, 20);
+  }
+
+  private normalizeLookupValues(values: Array<string | null | undefined>): string[] {
+    const seen = new Set<string>();
+    for (const rawValue of values) {
+      const value = rawValue?.trim();
+      if (!value) {
+        continue;
+      }
+      seen.add(value);
+    }
+
+    return Array.from(seen).sort((a, b) => a.localeCompare(b));
+  }
+
+  /**
+   * Create a signed URL for files in the private "documents" storage bucket.
+   * We support legacy and current file_path shapes to keep older records accessible.
+   */
+  private async createSignedFileUrl(filePath: string): Promise<string | null> {
+    if (!filePath) {
+      return null;
+    }
+
+    const normalizedPath = filePath.replace(/^\/+/, '');
+    const candidates = Array.from(
+      new Set([
+        normalizedPath,
+        normalizedPath.replace(/^documents\//, ''),
+        normalizedPath.startsWith('documents/')
+          ? normalizedPath
+          : `documents/${normalizedPath}`,
+      ]),
+    );
+
+    for (const pathCandidate of candidates) {
+      if (!pathCandidate) {
+        continue;
+      }
+
+      const { data, error } = await this.supabase.storage
+        .from('documents')
+        .createSignedUrl(pathCandidate, 60 * 60);
+
+      if (!error && data?.signedUrl) {
+        return data.signedUrl;
+      }
+    }
+
+    this.logger.warn(`Unable to create signed URL for file path: ${filePath}`);
+    return null;
   }
 }

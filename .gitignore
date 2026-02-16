@@ -113,3 +113,4 @@ dump.rdb
 next-env.d.ts
 output/
 docs/module-0/
+backend/test-claude*.js

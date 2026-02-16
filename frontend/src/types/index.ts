@@ -3,6 +3,7 @@ export interface Document {
   id: string;
   file_name: string;
   file_path: string;
+  file_signed_url?: string | null;
   file_size: number;
   mime_type: string;
   status: 'pending' | 'processing' | 'review' | 'completed' | 'failed';
@@ -31,7 +32,7 @@ export interface ExtractedData {
   assigned_doctor_confidence: number;
   category: string | null;
   category_confidence: number;
-  raw_extraction?: any;
+  raw_extraction?: unknown;
   created_at: string;
   updated_at: string;
 }
@@ -80,7 +81,7 @@ export const DOCUMENT_CATEGORIES = [
   'Immunisation',
   'Clinical notes',
   'Consent form',
-  'Admission summary',
+  'Admissions summary',
   'Advance care planning',
   'Clinical photograph',
   'DAS21',

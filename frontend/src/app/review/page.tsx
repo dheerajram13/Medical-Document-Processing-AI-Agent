@@ -1,198 +1,362 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { QueueSkeleton } from '@/components/review/QueueSkeleton';
+import { ArrowRight, InboxIcon, RefreshCw } from '@/components/ui/icons';
+import { StatusBadge, type QueueStatus } from '@/components/ui/StatusBadge';
+import { ToastStack, type ToastItem, type ToastTone } from '@/components/ui/ToastStack';
 import { api } from '@/lib/api';
-import { Document } from '@/types';
-import { formatDate, getConfidenceLevel, calculateOverallConfidence } from '@/lib/utils';
+import { calculateOverallConfidence, formatDate, getConfidenceLevel } from '@/lib/utils';
+import type { Document, ExtractedData } from '@/types';
+
+const QUEUE_POLL_INTERVAL_MS = 15000;
+
+function deriveQueueStatus(document: Document): QueueStatus {
+  if (document.status === 'completed') {
+    return 'approved';
+  }
+  if (document.status === 'review') {
+    return 'review';
+  }
+  if (document.extracted_data?.length) {
+    return 'extracted';
+  }
+  return 'ocr';
+}
+
+function extractedFieldCount(data: ExtractedData | undefined): number {
+  if (!data) return 0;
+
+  const fields = [
+    data.patient_name,
+    data.report_date,
+    data.subject,
+    data.source_contact,
+    data.store_in,
+    data.assigned_doctor,
+    data.category,
+  ];
+  return fields.filter(Boolean).length;
+}
+
+function confidenceBadgeClass(confidence: number): string {
+  const level = getConfidenceLevel(confidence).level;
+  if (level === 'high') return 'confidence-high';
+  if (level === 'medium') return 'confidence-medium';
+  return 'confidence-low';
+}
+
+function formatLastUpdated(value: Date | null): string {
+  if (!value) {
+    return 'Not synced yet';
+  }
+
+  return new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+  }).format(value);
+}
+
+type LoadDocumentsOptions = {
+  manualRefresh?: boolean;
+  silent?: boolean;
+  background?: boolean;
+};
 
 export default function ReviewQueuePage() {
-  const router = useRouter();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const pollingInFlightRef = useRef(false);
 
-  useEffect(() => {
-    loadDocuments();
+  const dismissToast = useCallback((id: number) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
 
-  const loadDocuments = async () => {
-    try {
-      setLoading(true);
-      const response = await api.getReviewQueue();
-      if (response.success && response.data) {
-        setDocuments(response.data);
-      } else {
-        setError(response.error || 'Failed to load documents');
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to load documents');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const addToast = useCallback((tone: ToastTone, title: string, message?: string) => {
+    const id = Date.now() + Math.floor(Math.random() * 1000);
+    setToasts((prev) => [...prev, { id, tone, title, message }]);
+    window.setTimeout(() => {
+      setToasts((prev) => prev.filter((toast) => toast.id !== id));
+    }, 4200);
+  }, []);
 
-  const getOverallConfidence = (doc: Document) => {
-    if (!doc.extracted_data || doc.extracted_data.length === 0) return 0;
-    const data = doc.extracted_data[0];
-    return calculateOverallConfidence(data);
-  };
+  const loadDocuments = useCallback(
+    async ({ manualRefresh = false, silent = false, background = false }: LoadDocumentsOptions = {}) => {
+      try {
+        if (manualRefresh) {
+          setRefreshing(true);
+        } else if (!background) {
+          setLoading(true);
+        }
+
+        const response = await api.getReviewQueue();
+        if (response.success && response.data) {
+          setDocuments(response.data);
+          setLastUpdatedAt(new Date());
+          if (manualRefresh) {
+            addToast('success', 'Queue refreshed', `${response.data.length} document(s) loaded.`);
+          }
+          return;
+        }
+        if (!silent) {
+          addToast('error', 'Unable to load queue', response.error || 'Please try again.');
+        }
+      } catch (error) {
+        if (!silent) {
+          const message = error instanceof Error ? error.message : 'Unexpected queue loading error.';
+          addToast('error', 'Unable to load queue', message);
+        }
+      } finally {
+        if (manualRefresh) {
+          setRefreshing(false);
+        }
+        if (!manualRefresh && !background) {
+          setLoading(false);
+        }
+      }
+    },
+    [addToast],
+  );
+
+  useEffect(() => {
+    void loadDocuments();
+  }, [loadDocuments]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState !== 'visible' || loading || refreshing || pollingInFlightRef.current) {
+        return;
+      }
+
+      pollingInFlightRef.current = true;
+      void loadDocuments({ background: true, silent: true }).finally(() => {
+        pollingInFlightRef.current = false;
+      });
+    }, QUEUE_POLL_INTERVAL_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [loadDocuments, loading, refreshing]);
+
+  useEffect(() => {
+    const refreshOnFocus = () => {
+      if (document.visibilityState !== 'visible' || loading || refreshing || pollingInFlightRef.current) {
+        return;
+      }
+
+      pollingInFlightRef.current = true;
+      void loadDocuments({ background: true, silent: true }).finally(() => {
+        pollingInFlightRef.current = false;
+      });
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshOnFocus();
+      }
+    };
+
+    window.addEventListener('focus', refreshOnFocus);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', refreshOnFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [loadDocuments, loading, refreshing]);
+
+  const summary = useMemo(() => {
+    const total = documents.length;
+    const confidenceValues = documents
+      .map((doc) => (doc.extracted_data?.[0] ? calculateOverallConfidence(doc.extracted_data[0]) : null))
+      .filter((value): value is number => value !== null);
+    const averageConfidence = confidenceValues.length
+      ? confidenceValues.reduce((sum, value) => sum + value, 0) / confidenceValues.length
+      : 0;
+    const fullyExtracted = documents.filter((doc) => extractedFieldCount(doc.extracted_data?.[0]) === 7).length;
+    const needsReview = documents.filter((doc) => deriveQueueStatus(doc) === 'review').length;
+    return { total, averageConfidence, fullyExtracted, needsReview };
+  }, [documents]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex">
-              <div className="flex-shrink-0 flex items-center">
-                <Link href="/" className="text-2xl font-bold text-blue-600">
-                  DocAI
-                </Link>
-              </div>
-              <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                <Link
-                  href="/upload"
-                  className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-900 hover:text-blue-600"
-                >
-                  Upload
-                </Link>
-                <Link
-                  href="/review"
-                  className="inline-flex items-center px-1 pt-1 text-sm font-medium text-blue-600 border-b-2 border-blue-600"
-                >
-                  Review Queue
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
+    <div className="mesh-background mesh-noise relative min-h-screen overflow-hidden">
+      <div className="pointer-events-none absolute -top-20 right-0 h-80 w-80 rounded-full bg-sky-400/15 blur-3xl" />
+      <div className="pointer-events-none absolute bottom-0 left-0 h-72 w-72 rounded-full bg-emerald-400/10 blur-3xl" />
+      <div className="subtle-grid pointer-events-none absolute inset-0 opacity-28" />
 
-      <main className="max-w-7xl mx-auto py-4 sm:px-6 lg:px-8">
-        <div className="px-4 py-4 sm:px-0">
-          <div className="flex justify-between items-center mb-4">
-            <h1 className="text-2xl font-bold text-gray-900">Review Queue</h1>
-            <button
-              onClick={loadDocuments}
-              className="bg-blue-600 text-white px-3 py-1.5 text-sm rounded hover:bg-blue-700"
+      <header className="relative z-10 border-b border-white/10 bg-slate-950/35 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 md:px-6">
+          <Link href="/" className="text-lg font-bold tracking-tight text-slate-100">
+            Samantha
+            <span className="ml-2 text-xs font-medium text-sky-200/85">Medical Document AI</span>
+          </Link>
+          <nav className="flex items-center gap-2 text-sm">
+            <Link
+              href="/upload"
+              className="rounded-xl border border-white/15 px-3 py-1.5 text-slate-200/85 transition hover:bg-white/10"
             >
+              Upload
+            </Link>
+            <Link href="/review" className="rounded-xl border border-sky-200/35 bg-sky-500/16 px-3 py-1.5 text-sky-100">
+              Review Queue
+            </Link>
+          </nav>
+        </div>
+      </header>
+
+      <main className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-16 pt-10 md:px-6">
+        <section className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="text-3xl font-semibold text-slate-100 md:text-4xl">Review Queue</h1>
+            <p className="mt-2 text-sm text-slate-300/78 md:text-base">Verify extracted fields and approve documents for completion.</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <p className="hidden text-xs text-slate-300/72 md:block">
+              Auto-refresh: 15s. Last sync: {formatLastUpdated(lastUpdatedAt)}
+            </p>
+            <button
+              type="button"
+              onClick={() => void loadDocuments({ manualRefresh: true })}
+              disabled={refreshing || loading}
+              className="inline-flex items-center gap-2 rounded-xl border border-sky-200/35 bg-sky-500/16 px-4 py-2 text-sm font-semibold text-sky-100 transition hover:bg-sky-500/25 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing || loading ? 'animate-spin' : ''}`} />
               Refresh
             </button>
           </div>
+        </section>
 
-          {loading && (
-            <div className="text-center py-12">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-              <p className="mt-4 text-gray-600">Loading documents...</p>
+        <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="glass-panel rounded-2xl border px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.12em] text-slate-300/68">Documents in Queue</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-100">{summary.total}</p>
+          </div>
+          <div className="glass-panel rounded-2xl border px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.12em] text-slate-300/68">Avg Confidence</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-100">{Math.round(summary.averageConfidence * 100)}%</p>
+          </div>
+          <div className="glass-panel rounded-2xl border px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.12em] text-slate-300/68">7/7 Fields Extracted</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-100">{summary.fullyExtracted}</p>
+          </div>
+          <div className="glass-panel rounded-2xl border px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.12em] text-slate-300/68">Needs Review</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-100">{summary.needsReview}</p>
+          </div>
+        </section>
+
+        <p className="mb-5 text-xs text-slate-300/72 md:hidden">Auto-refreshes every 15s. Last sync: {formatLastUpdated(lastUpdatedAt)}</p>
+
+        {loading ? (
+          <QueueSkeleton />
+        ) : documents.length === 0 ? (
+          <section className="glass-panel soft-glow rounded-[1.8rem] border px-6 py-14 text-center">
+            <div className="mx-auto mb-5 flex h-16 w-16 animate-float items-center justify-center rounded-2xl border border-sky-200/35 bg-sky-500/16 text-sky-100">
+              <InboxIcon className="h-8 w-8" />
             </div>
-          )}
-
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-              <p className="text-red-800">{error}</p>
+            <h2 className="text-xl font-semibold text-slate-100">No documents to review yet</h2>
+            <p className="mt-2 text-sm text-slate-300/75">Upload a document to get started.</p>
+            <Link
+              href="/upload"
+              className="btn-gradient-primary mt-6 inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white"
+            >
+              Upload Document
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </section>
+        ) : (
+          <section className="glass-panel rounded-[1.8rem] border p-4 md:p-5">
+            <div className="mb-4 flex items-center justify-between text-sm text-slate-300/80">
+              <p>{documents.length} document(s) awaiting review</p>
+              <p>7 required fields tracked per document</p>
             </div>
-          )}
 
-          {!loading && documents.length === 0 && (
-            <div className="text-center py-8 bg-white rounded-lg shadow">
-              <div className="text-4xl mb-3">📭</div>
-              <h2 className="text-xl font-semibold text-gray-700 mb-2">No documents to review</h2>
-              <p className="text-sm text-gray-500 mb-4">Upload a document to get started</p>
-              <Link
-                href="/upload"
-                className="inline-block bg-blue-600 text-white px-4 py-2 text-sm rounded-lg hover:bg-blue-700"
-              >
-                Upload Document
-              </Link>
-            </div>
-          )}
-
-          {!loading && documents.length > 0 && (
-            <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-              <div className="px-4 py-3 sm:px-6 bg-gray-50">
-                <h3 className="text-base leading-6 font-medium text-gray-900">
-                  {documents.length} document{documents.length !== 1 ? 's' : ''} awaiting review
-                </h3>
+            <div className="hidden overflow-hidden rounded-2xl border border-white/10 md:block">
+              <div className="grid grid-cols-[2.3fr,1.35fr,1fr,1fr,1.2fr,0.9fr] gap-3 border-b border-white/10 bg-slate-900/50 px-4 py-3 text-xs font-semibold uppercase tracking-[0.09em] text-slate-300/80">
+                <span>Document Name</span>
+                <span>Status</span>
+                <span>Fields</span>
+                <span>Confidence</span>
+                <span>Uploaded</span>
+                <span>Action</span>
               </div>
-              <ul className="divide-y divide-gray-200">
-                {documents.map((doc) => {
-                  const confidence = getOverallConfidence(doc);
-                  const confidenceInfo = getConfidenceLevel(confidence);
-                  const extractedData = doc.extracted_data?.[0];
+              {documents.map((document) => {
+                const extractedData = document.extracted_data?.[0];
+                const status = deriveQueueStatus(document);
+                const fieldsCount = extractedFieldCount(extractedData);
+                const confidence = extractedData ? calculateOverallConfidence(extractedData) : 0;
 
-                  return (
-                    <li
-                      key={doc.id}
-                      className="hover:bg-gray-50 cursor-pointer transition-colors"
-                      onClick={() => router.push(`/review/${doc.id}`)}
+                return (
+                  <div
+                    key={document.id}
+                    className="table-row-glow grid grid-cols-[2.3fr,1.35fr,1fr,1fr,1.2fr,0.9fr] items-center gap-3 border-b border-white/5 bg-slate-950/18 px-4 py-4 text-sm last:border-none"
+                  >
+                    <div>
+                      <p className="truncate font-semibold text-slate-100">{document.file_name}</p>
+                      <p className="mt-0.5 truncate text-xs text-slate-300/70">{document.mime_type || 'Medical Document'}</p>
+                    </div>
+                    <StatusBadge status={status} />
+                    <span className="status-pill border border-sky-200/28 bg-sky-500/12 text-sky-100">{fieldsCount}/7</span>
+                    <span className={`status-pill ${confidenceBadgeClass(confidence)}`}>{Math.round(confidence * 100)}%</span>
+                    <span className="text-xs text-slate-300/75">{formatDate(document.uploaded_at)}</span>
+                    <Link
+                      href={`/review/${document.id}`}
+                      className="inline-flex items-center gap-1 rounded-xl border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-sky-200/30 hover:bg-sky-500/15"
                     >
-                      <div className="px-4 py-3 sm:px-6">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center mb-2">
-                              <h3 className="text-base font-medium text-gray-900 mr-2">
-                                {doc.file_name}
-                              </h3>
-                              <span
-                                className={`px-2 py-1 text-xs font-medium rounded-full ${confidenceInfo.bgColor} ${confidenceInfo.color}`}
-                              >
-                                {Math.round(confidence * 100)}% {confidenceInfo.label}
-                              </span>
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2">
-                              <div>
-                                <p className="text-xs text-gray-500">Patient</p>
-                                <p className="text-sm font-medium text-gray-900">
-                                  {extractedData?.patient_name || 'N/A'}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-500">Date</p>
-                                <p className="text-sm font-medium text-gray-900">
-                                  {extractedData?.report_date || 'N/A'}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-500">Category</p>
-                                <p className="text-sm font-medium text-gray-900">
-                                  {extractedData?.category || 'N/A'}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-500">Doctor</p>
-                                <p className="text-sm font-medium text-gray-900">
-                                  {extractedData?.assigned_doctor || 'N/A'}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="ml-4 flex-shrink-0">
-                            <svg
-                              className="h-5 w-5 text-gray-400"
-                              fill="none"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path d="M9 5l7 7-7 7"></path>
-                            </svg>
-                          </div>
-                        </div>
-                        <div className="mt-2 flex items-center text-sm text-gray-500">
-                          <span>Uploaded {formatDate(doc.uploaded_at)}</span>
-                        </div>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+                      Review
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </div>
+                );
+              })}
             </div>
-          )}
-        </div>
+
+            <div className="space-y-3 md:hidden">
+              {documents.map((document) => {
+                const extractedData = document.extracted_data?.[0];
+                const status = deriveQueueStatus(document);
+                const fieldsCount = extractedFieldCount(extractedData);
+                const confidence = extractedData ? calculateOverallConfidence(extractedData) : 0;
+
+                return (
+                  <article key={document.id} className="table-row-glow rounded-2xl border border-white/10 bg-slate-900/45 p-4">
+                    <div className="mb-2 flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="line-clamp-2 text-sm font-semibold text-slate-100">{document.file_name}</h3>
+                        <p className="mt-1 text-xs text-slate-300/70">{formatDate(document.uploaded_at)}</p>
+                      </div>
+                      <StatusBadge status={status} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="rounded-xl border border-white/10 bg-slate-900/45 p-2">
+                        <p className="text-slate-400">Fields</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-100">{fieldsCount}/7</p>
+                      </div>
+                      <div className="rounded-xl border border-white/10 bg-slate-900/45 p-2">
+                        <p className="text-slate-400">Confidence</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-100">{Math.round(confidence * 100)}%</p>
+                      </div>
+                    </div>
+                    <Link
+                      href={`/review/${document.id}`}
+                      className="mt-3 inline-flex w-full items-center justify-center gap-1 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm font-semibold text-slate-100 transition hover:border-sky-200/30 hover:bg-sky-500/15"
+                    >
+                      Review
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        )}
       </main>
+
+      <ToastStack toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

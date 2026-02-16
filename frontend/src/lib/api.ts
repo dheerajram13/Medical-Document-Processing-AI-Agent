@@ -63,6 +63,21 @@ class ApiClient {
     return this.fetch<Document[]>('/documents/queue/review');
   }
 
+  async getPatientLookup(query: string): Promise<ApiResponse<string[]>> {
+    const params = new URLSearchParams({ q: query });
+    return this.fetch<string[]>(`/documents/lookups/patients?${params.toString()}`);
+  }
+
+  async getDoctorLookup(query: string): Promise<ApiResponse<string[]>> {
+    const params = new URLSearchParams({ q: query });
+    return this.fetch<string[]>(`/documents/lookups/doctors?${params.toString()}`);
+  }
+
+  async getSourceContactLookup(query: string): Promise<ApiResponse<string[]>> {
+    const params = new URLSearchParams({ q: query });
+    return this.fetch<string[]>(`/documents/lookups/sources?${params.toString()}`);
+  }
+
   // Update extracted data
   async updateExtractedData(
     documentId: string,

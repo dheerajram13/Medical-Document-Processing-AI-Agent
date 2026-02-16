@@ -10,7 +10,7 @@ import { DocumentsModule } from './modules/documents/documents.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '../.env', // Load from root .env
+      envFilePath: '.env', // Load from backend/.env
     }),
     OcrModule,
     ExtractionModule,

@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Body,
+  Query,
   UseInterceptors,
   UploadedFile,
   Logger,
@@ -89,6 +90,63 @@ export class DocumentsController {
   }
 
   /**
+   * Lookup values for dropdown/search controls in review form
+   */
+  @Get('lookups/patients')
+  async getPatientLookup(@Query('q') query = '') {
+    try {
+      const data = await this.documentsService.getPatientLookup(query);
+      return {
+        success: true,
+        count: data.length,
+        data,
+      };
+    } catch (error) {
+      this.logger.error(`Failed to load patient lookup: ${error.message}`);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  @Get('lookups/doctors')
+  async getDoctorLookup(@Query('q') query = '') {
+    try {
+      const data = await this.documentsService.getDoctorLookup(query);
+      return {
+        success: true,
+        count: data.length,
+        data,
+      };
+    } catch (error) {
+      this.logger.error(`Failed to load doctor lookup: ${error.message}`);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  @Get('lookups/sources')
+  async getSourceContactLookup(@Query('q') query = '') {
+    try {
+      const data = await this.documentsService.getSourceContactLookup(query);
+      return {
+        success: true,
+        count: data.length,
+        data,
+      };
+    } catch (error) {
+      this.logger.error(`Failed to load source contact lookup: ${error.message}`);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
    * Update extracted data (user corrections)
    */
   @Post(':id/update')
@@ -162,4 +220,5 @@ export class DocumentsController {
       };
     }
   }
+
 }

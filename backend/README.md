@@ -106,4 +106,8 @@ npm run start:dev
 
 ## Environment Setup
 
-Configure `.env` in the project root with required API keys.
+1. Copy template:
+   ```bash
+   cp .env.example .env
+   ```
+2. Configure `.env` with API keys and provider modes.

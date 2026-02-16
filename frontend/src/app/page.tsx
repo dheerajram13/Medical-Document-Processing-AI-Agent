@@ -1,172 +1,187 @@
 import Link from 'next/link';
+import type { ReactElement, SVGProps } from 'react';
+import {
+  ArrowRight,
+  CheckCircle,
+  ClipboardCheck,
+  FileIcon,
+  SparklesIcon,
+} from '@/components/ui/icons';
+
+type IconComponent = (props: SVGProps<SVGSVGElement>) => ReactElement;
+
+type FeatureCard = {
+  title: string;
+  description: string;
+  icon: IconComponent;
+  accentClass: string;
+};
+
+const featureCards: FeatureCard[] = [
+  {
+    title: 'Secure Ingestion',
+    description: 'Drag and drop PDF and DOCX files into an encrypted workflow with intake validation.',
+    icon: FileIcon,
+    accentClass: 'border-sky-300/30 bg-sky-500/14 text-sky-100',
+  },
+  {
+    title: 'OCR + AI Extraction',
+    description: 'Azure OCR and Gemini extraction identify all 7 required medical metadata fields.',
+    icon: SparklesIcon,
+    accentClass: 'border-cyan-300/30 bg-cyan-500/14 text-cyan-100',
+  },
+  {
+    title: 'Human Review Control',
+    description: 'Reception teams verify fields, correct values, and approve with full audit visibility.',
+    icon: ClipboardCheck,
+    accentClass: 'border-emerald-300/30 bg-emerald-500/14 text-emerald-100',
+  },
+];
+
+const workflowSteps = [
+  'Upload document',
+  'Extract text with OCR',
+  'Run AI field extraction',
+  'Queue for human review',
+];
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      {/* Modern Navbar */}
-      <nav className="bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 flex items-center">
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-lg">D</span>
-                  </div>
-                  <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                    DocAI
-                  </h1>
-                </div>
-              </div>
-              <div className="hidden sm:ml-8 sm:flex sm:space-x-8">
-                <Link
-                  href="/upload"
-                  className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors"
-                >
-                  Upload
-                </Link>
-                <Link
-                  href="/review"
-                  className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors"
-                >
-                  Review Queue
-                </Link>
-              </div>
-            </div>
-          </div>
+    <div className="mesh-background mesh-noise relative min-h-screen overflow-hidden">
+      <div className="pointer-events-none absolute -top-24 left-[15%] h-80 w-80 rounded-full bg-sky-400/20 blur-3xl" />
+      <div className="pointer-events-none absolute bottom-0 right-[12%] h-72 w-72 rounded-full bg-emerald-400/12 blur-3xl" />
+      <div className="subtle-grid pointer-events-none absolute inset-0 opacity-35" />
+
+      <header className="relative z-10 border-b border-white/10 bg-slate-950/35 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 md:px-6">
+          <Link href="/" className="text-lg font-bold tracking-tight text-slate-100">
+            Samantha
+            <span className="ml-2 text-xs font-medium text-sky-200/80">Medical Document AI</span>
+          </Link>
+          <nav className="flex items-center gap-2 text-sm">
+            <Link href="/upload" className="rounded-xl border border-white/15 px-3 py-1.5 text-slate-200/85 transition hover:bg-white/10">
+              Upload
+            </Link>
+            <Link href="/review" className="rounded-xl border border-white/15 px-3 py-1.5 text-slate-200/85 transition hover:bg-white/10">
+              Review Queue
+            </Link>
+          </nav>
         </div>
-      </nav>
+      </header>
 
-      {/* Hero Section */}
-      <main className="max-w-7xl mx-auto py-8 sm:px-6 lg:px-8">
-        <div className="px-4 py-8 sm:px-0">
-          <div className="text-center mb-10">
-            <div className="inline-block mb-3 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
-              AI-Powered Medical Document Processing
-            </div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              Automate Your<br/>
-              <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                Document Workflow
-              </span>
-            </h2>
-            <p className="text-base text-gray-600 max-w-2xl mx-auto">
-              Extract medical data from documents with 90%+ accuracy using OCR and AI extraction
+      <main className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-20 pt-12 md:px-6 md:pt-16">
+        <section className="grid items-center gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="max-w-2xl">
+            <p className="mb-4 inline-flex rounded-full border border-sky-200/30 bg-sky-500/12 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-sky-100">
+              Enterprise HealthTech Workflow
             </p>
-          </div>
+            <h1 className="text-4xl font-bold leading-tight text-slate-100 md:text-6xl">
+              Turn Medical Documents into
+              <span className="gradient-primary ml-2 bg-clip-text text-transparent">Ready-to-Review Records</span>
+            </h1>
+            <p className="mt-5 text-base leading-relaxed text-slate-300/85 md:text-lg">
+              Samantha automates OCR and field extraction for your clinic operations team, with clear human checkpoints before final approval.
+            </p>
 
-          {/* Feature Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-8">
-            <div className="bg-white p-5 rounded-2xl shadow-lg card-hover border border-gray-100">
-              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center mb-3">
-                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                </svg>
-              </div>
-              <h3 className="text-base font-bold mb-2 text-gray-900">Upload Documents</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Drag & drop PDF or DOCX files for instant processing with Azure OCR
-              </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
                 href="/upload"
-                className="inline-flex items-center justify-center w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-2 text-sm rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg"
+                className="btn-gradient-primary inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3 text-sm font-bold text-white"
               >
-                Upload Now →
+                Start Upload
+                <ArrowRight className="h-4 w-4" />
               </Link>
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl shadow-lg card-hover border border-gray-100">
-              <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center mb-3">
-                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h3 className="text-base font-bold mb-2 text-gray-900">Review & Approve</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                AI extracts 7 fields with confidence scoring, review and approve for import
-              </p>
               <Link
                 href="/review"
-                className="inline-flex items-center justify-center w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-2 text-sm rounded-lg font-medium hover:from-green-700 hover:to-emerald-700 transition-all shadow-md hover:shadow-lg"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
               >
-                View Queue →
+                Open Review Queue
               </Link>
             </div>
 
-            <div className="bg-white p-5 rounded-2xl shadow-lg card-hover border border-gray-100">
-              <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center mb-3">
-                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
+            <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="glass-panel rounded-2xl border px-4 py-3">
+                <p className="text-2xl font-bold text-slate-100">7</p>
+                <p className="mt-1 text-xs uppercase tracking-[0.12em] text-slate-300/70">Required Fields</p>
               </div>
-              <h3 className="text-base font-bold mb-2 text-gray-900">AI Extraction</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Patient, Date, Subject, Source, Doctor, Category, Store In
-              </p>
-              <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span>Accuracy</span>
-                  <span className="font-semibold text-purple-600">90%+</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Processing</span>
-                  <span className="font-semibold text-purple-600">&lt;30s</span>
-                </div>
+              <div className="glass-panel rounded-2xl border px-4 py-3">
+                <p className="text-2xl font-bold text-slate-100">&lt; 30s</p>
+                <p className="mt-1 text-xs uppercase tracking-[0.12em] text-slate-300/70">Typical Processing</p>
+              </div>
+              <div className="glass-panel rounded-2xl border px-4 py-3">
+                <p className="text-2xl font-bold text-slate-100">90%+</p>
+                <p className="mt-1 text-xs uppercase tracking-[0.12em] text-slate-300/70">AI Extraction Accuracy</p>
               </div>
             </div>
           </div>
 
-          {/* System Status */}
-          <div className="mt-10 bg-white p-5 rounded-2xl shadow-lg border border-gray-100">
-            <h3 className="text-base font-bold mb-4 text-gray-900">System Status</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="text-center p-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl">
-                <div className="text-xl font-bold text-blue-600 mb-0.5">✓</div>
-                <div className="text-xs text-gray-600 mb-0.5">OCR Engine</div>
-                <div className="text-xs font-medium text-blue-600">Azure Ready</div>
-              </div>
-              <div className="text-center p-3 bg-gradient-to-br from-green-50 to-green-100 rounded-xl">
-                <div className="text-xl font-bold text-green-600 mb-0.5">✓</div>
-                <div className="text-xs text-gray-600 mb-0.5">AI Extraction</div>
-                <div className="text-xs font-medium text-green-600">Gemini Ready</div>
-              </div>
-              <div className="text-center p-3 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl">
-                <div className="text-xl font-bold text-purple-600 mb-0.5">✓</div>
-                <div className="text-xs text-gray-600 mb-0.5">Database</div>
-                <div className="text-xs font-medium text-purple-600">Supabase Ready</div>
-              </div>
-              <div className="text-center p-3 bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl">
-                <div className="text-xl font-bold text-orange-600 mb-0.5">✓</div>
-                <div className="text-xs text-gray-600 mb-0.5">Backend API</div>
-                <div className="text-xs font-medium text-orange-600">NestJS Ready</div>
-              </div>
+          <aside className="glass-panel soft-glow rounded-[1.8rem] border p-6">
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-200/85">Pipeline Health</h2>
+              <span className="status-pill status-approved">Operational</span>
             </div>
-          </div>
 
-          {/* Stats */}
-          <div className="mt-8 grid grid-cols-3 gap-5 text-center">
-            <div>
-              <div className="text-2xl font-bold text-blue-600 mb-1">90%+</div>
-              <div className="text-xs text-gray-600">AI Accuracy</div>
+            <ol className="space-y-3">
+              {workflowSteps.map((step, index) => (
+                <li key={step} className="rounded-xl border border-white/10 bg-slate-900/45 px-4 py-3">
+                  <div className="flex items-start gap-3">
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg border border-sky-200/30 bg-sky-500/14 text-xs font-semibold text-sky-100">
+                      {index + 1}
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-100">{step}</p>
+                      <p className="mt-0.5 text-xs text-slate-300/70">
+                        {index === 1
+                          ? 'Azure Document Intelligence'
+                          : index === 2
+                            ? 'Gemini extraction and confidence scoring'
+                            : index === 3
+                              ? 'Receptionist approval required'
+                              : 'Stored with metadata for processing'}
+                      </p>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ol>
+
+            <div className="mt-5 rounded-xl border border-emerald-200/25 bg-emerald-500/12 px-4 py-3 text-sm text-emerald-100">
+              All core services connected: Supabase, Azure OCR, Gemini API
             </div>
+          </aside>
+        </section>
+
+        <section className="mt-10 grid gap-4 md:grid-cols-3">
+          {featureCards.map((feature) => {
+            const Icon = feature.icon;
+            return (
+              <article key={feature.title} className="glass-panel rounded-[1.45rem] border p-5">
+                <span className={`mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl border ${feature.accentClass}`}>
+                  <Icon className="h-5 w-5" />
+                </span>
+                <h3 className="text-lg font-semibold text-slate-100">{feature.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-300/78">{feature.description}</p>
+              </article>
+            );
+          })}
+        </section>
+
+        <section className="glass-panel mt-10 rounded-[1.8rem] border p-6 md:p-7">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <div className="text-2xl font-bold text-green-600 mb-1">&lt;30s</div>
-              <div className="text-xs text-gray-600">Processing Time</div>
+              <h2 className="text-xl font-semibold text-slate-100">Ready for live demo flow</h2>
+              <p className="mt-1 text-sm text-slate-300/78">Upload, extract, review, and approve documents in a single operator workflow.</p>
             </div>
-            <div>
-              <div className="text-2xl font-bold text-purple-600 mb-1">7</div>
-              <div className="text-xs text-gray-600">Fields Extracted</div>
-            </div>
+            <Link
+              href="/upload"
+              className="btn-gradient-primary inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white"
+            >
+              Process a Document
+              <CheckCircle className="h-4 w-4" />
+            </Link>
           </div>
-        </div>
+        </section>
       </main>
-
-      {/* Footer */}
-      <footer className="mt-10 py-6 border-t border-gray-200 bg-white/50 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-gray-500">
-          <p>Medical Document AI · Powered by Azure OCR + Gemini AI + Next.js</p>
-        </div>
-      </footer>
     </div>
   );
 }
