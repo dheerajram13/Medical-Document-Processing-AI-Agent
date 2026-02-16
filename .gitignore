@@ -111,3 +111,4 @@ dump.rdb
 .turbo
 *.tsbuildinfo
 next-env.d.ts
+output/
