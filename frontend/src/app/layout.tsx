@@ -13,8 +13,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased">
-        {children}
+      <body className="antialiased overflow-x-hidden">
+        <div className="relative mx-auto w-full max-w-[1440px]">
+          {children}
+        </div>
       </body>
     </html>
   );

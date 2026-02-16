@@ -522,7 +522,7 @@ export default function ReviewDetailPage() {
       <div className="subtle-grid pointer-events-none absolute inset-0 opacity-28" />
 
       <header className="relative z-10 border-b border-white/10 bg-slate-950/35 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 md:px-6">
+        <div className="content-shell-wide flex items-center justify-between py-4">
           <Link href="/" className="text-lg font-bold tracking-tight text-slate-100">
             Samantha
             <span className="ml-2 text-xs font-medium text-sky-200/85">Medical Document AI</span>
@@ -536,7 +536,7 @@ export default function ReviewDetailPage() {
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-16 pt-8 md:px-6">
+      <main className="content-shell-wide relative z-10 pb-16 pt-8">
         <div className="mb-6 rounded-2xl border border-white/12 bg-slate-900/42 px-4 py-4 md:px-5">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="min-w-0">
@@ -723,6 +723,70 @@ export default function ReviewDetailPage() {
                   </select>
                   {fieldErrors.category && <p className="mt-2 text-xs text-rose-200/90">{fieldErrors.category}</p>}
                 </div>
+
+                {/* Additional AI-Extracted Fields (read-only info) */}
+                {extractedData && (extractedData.patient_dob || extractedData.patient_id || extractedData.specialist || extractedData.facility || extractedData.summary) && (
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+                    <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-300/70">Additional Extracted Info</h3>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
+                      {extractedData.patient_dob && (
+                        <div>
+                          <span className="text-slate-400">DOB:</span>{' '}
+                          <span className="text-slate-100">{extractedData.patient_dob}</span>
+                          <span className={`ml-1.5 text-[10px] font-semibold ${
+                            getConfidenceLevel(extractedData.patient_dob_confidence).level === 'high' ? 'text-emerald-300' :
+                            getConfidenceLevel(extractedData.patient_dob_confidence).level === 'medium' ? 'text-amber-300' : 'text-rose-300'
+                          }`}>{Math.round(extractedData.patient_dob_confidence * 100)}%</span>
+                        </div>
+                      )}
+                      {extractedData.patient_id && (
+                        <div>
+                          <span className="text-slate-400">MRN:</span>{' '}
+                          <span className="text-slate-100">{extractedData.patient_id}</span>
+                          <span className={`ml-1.5 text-[10px] font-semibold ${
+                            getConfidenceLevel(extractedData.patient_id_confidence).level === 'high' ? 'text-emerald-300' :
+                            getConfidenceLevel(extractedData.patient_id_confidence).level === 'medium' ? 'text-amber-300' : 'text-rose-300'
+                          }`}>{Math.round(extractedData.patient_id_confidence * 100)}%</span>
+                        </div>
+                      )}
+                      {extractedData.specialist && (
+                        <div>
+                          <span className="text-slate-400">Specialist:</span>{' '}
+                          <span className="text-slate-100">{extractedData.specialist}</span>
+                          <span className={`ml-1.5 text-[10px] font-semibold ${
+                            getConfidenceLevel(extractedData.specialist_confidence).level === 'high' ? 'text-emerald-300' :
+                            getConfidenceLevel(extractedData.specialist_confidence).level === 'medium' ? 'text-amber-300' : 'text-rose-300'
+                          }`}>{Math.round(extractedData.specialist_confidence * 100)}%</span>
+                        </div>
+                      )}
+                      {extractedData.facility && (
+                        <div>
+                          <span className="text-slate-400">Facility:</span>{' '}
+                          <span className="text-slate-100">{extractedData.facility}</span>
+                          <span className={`ml-1.5 text-[10px] font-semibold ${
+                            getConfidenceLevel(extractedData.facility_confidence).level === 'high' ? 'text-emerald-300' :
+                            getConfidenceLevel(extractedData.facility_confidence).level === 'medium' ? 'text-amber-300' : 'text-rose-300'
+                          }`}>{Math.round(extractedData.facility_confidence * 100)}%</span>
+                        </div>
+                      )}
+                      {extractedData.urgency && extractedData.urgency !== 'Normal' && (
+                        <div className="col-span-2">
+                          <span className="text-slate-400">Urgency:</span>{' '}
+                          <span className={`font-semibold ${
+                            extractedData.urgency === 'Critical' ? 'text-rose-300' :
+                            extractedData.urgency === 'Urgent' ? 'text-amber-300' : 'text-slate-100'
+                          }`}>{extractedData.urgency}</span>
+                        </div>
+                      )}
+                    </div>
+                    {extractedData.summary && (
+                      <div className="mt-3 border-t border-white/8 pt-3">
+                        <span className="text-xs text-slate-400">AI Summary:</span>
+                        <p className="mt-1 text-sm leading-relaxed text-slate-200/90">{extractedData.summary}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <button

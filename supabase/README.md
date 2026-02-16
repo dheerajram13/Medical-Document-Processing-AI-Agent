@@ -9,6 +9,7 @@
 3. **review_queue** - Manages human review workflow
 4. **audit_log** - Tracks all actions and changes
 5. **pms_export_log** - Logs PMS export attempts and results
+6. **patients/doctors/source_contacts** - Optional lookup tables for review form typeahead
 
 ## Running Migrations
 
@@ -16,8 +17,8 @@
 
 1. Go to your Supabase project: https://supabase.com/dashboard/project/hkluxxafvxywzklrtrsm
 2. Navigate to **SQL Editor**
-3. Copy the contents of `migrations/001_initial_schema.sql`
-4. Paste and run the SQL
+3. Run `migrations/001_initial_schema.sql`
+4. Run `migrations/002_extracted_data_extended_fields.sql`
 
 ### Option 2: Supabase CLI (For local development)
 

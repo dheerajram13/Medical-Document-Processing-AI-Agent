@@ -18,9 +18,7 @@ export class OcrController {
 
   @Post('extract')
   @UseInterceptors(FileInterceptor('file'))
-  async extractText(
-    @UploadedFile() file: Express.Multer.File,
-  ): Promise<{
+  async extractText(@UploadedFile() file: Express.Multer.File): Promise<{
     success: boolean;
     data?: {
       text: string;
@@ -58,9 +56,7 @@ export class OcrController {
   }
 
   @Post('extract-url')
-  async extractTextFromUrl(
-    @Body() body: { url: string },
-  ): Promise<{
+  async extractTextFromUrl(@Body() body: { url: string }): Promise<{
     success: boolean;
     data?: {
       text: string;

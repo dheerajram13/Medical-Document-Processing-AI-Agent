@@ -18,6 +18,7 @@ export interface Document {
 export interface ExtractedData {
   id: string;
   document_id: string;
+  // Core 7 fields
   patient_name: string | null;
   patient_name_confidence: number;
   report_date: string | null;
@@ -32,6 +33,19 @@ export interface ExtractedData {
   assigned_doctor_confidence: number;
   category: string | null;
   category_confidence: number;
+  // Additional fields
+  patient_dob: string | null;
+  patient_dob_confidence: number;
+  patient_id: string | null;
+  patient_id_confidence: number;
+  specialist: string | null;
+  specialist_confidence: number;
+  facility: string | null;
+  facility_confidence: number;
+  urgency: 'Normal' | 'Urgent' | 'Critical' | null;
+  urgency_confidence: number;
+  summary: string | null;
+  summary_confidence: number;
   raw_extraction?: unknown;
   created_at: string;
   updated_at: string;

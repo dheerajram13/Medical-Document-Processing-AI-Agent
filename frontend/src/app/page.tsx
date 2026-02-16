@@ -53,7 +53,7 @@ export default function Home() {
       <div className="subtle-grid pointer-events-none absolute inset-0 opacity-35" />
 
       <header className="relative z-10 border-b border-white/10 bg-slate-950/35 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 md:px-6">
+        <div className="content-shell flex items-center justify-between py-4">
           <Link href="/" className="text-lg font-bold tracking-tight text-slate-100">
             Samantha
             <span className="ml-2 text-xs font-medium text-sky-200/80">Medical Document AI</span>
@@ -69,15 +69,15 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-20 pt-12 md:px-6 md:pt-16">
+      <main className="content-shell relative z-10 pb-20 pt-12 md:pt-16">
         <section className="grid items-center gap-8 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="max-w-2xl">
             <p className="mb-4 inline-flex rounded-full border border-sky-200/30 bg-sky-500/12 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-sky-100">
               Enterprise HealthTech Workflow
             </p>
             <h1 className="text-4xl font-bold leading-tight text-slate-100 md:text-6xl">
-              Turn Medical Documents into
-              <span className="gradient-primary ml-2 bg-clip-text text-transparent">Ready-to-Review Records</span>
+              <span className="block">Turn Medical Documents into</span>
+              <span className="gradient-text mt-2 block">Ready-to-Review Records</span>
             </h1>
             <p className="mt-5 text-base leading-relaxed text-slate-300/85 md:text-lg">
               Samantha automates OCR and field extraction for your clinic operations team, with clear human checkpoints before final approval.

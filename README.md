@@ -101,16 +101,12 @@ AI-powered system for automated extraction of medical document metadata with hum
 
    # Terminal 2: Frontend
    cd frontend
-   npm run dev
-
-   # Terminal 3: Queue worker
-   cd backend
-   npm run queue:worker
+   npm run dev -- -p 3002
    ```
 
 6. **Access the application**
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:4000
+   - Frontend: http://localhost:3002
+   - Backend API: http://localhost:3000
 
 ---
 
@@ -124,9 +120,7 @@ Medical-Document-Processing-AI-Agent/
 │   │   │   ├── documents/           # Document upload & storage
 │   │   │   ├── ocr/                 # Azure OCR integration
 │   │   │   ├── extraction/          # AI field extraction
-│   │   │   ├── review/              # Human review workflow
-│   │   │   ├── pms/                 # PMS integration
-│   │   │   └── queue/               # Bull queue workers
+│   │   │   └── (review/pms/queue modules planned)
 │   │   ├── common/
 │   │   └── main.ts
 │   └── package.json
@@ -272,9 +266,7 @@ python3 tests/module-0-validation/test_supabase_connection.py
 
 ## 📝 API Documentation
 
-API documentation will be available at:
-- Swagger UI: http://localhost:4000/api
-- OpenAPI JSON: http://localhost:4000/api-json
+Swagger/OpenAPI is not enabled in the current backend build.
 
 ---
 

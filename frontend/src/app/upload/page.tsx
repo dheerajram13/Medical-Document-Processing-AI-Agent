@@ -169,7 +169,7 @@ export default function UploadPage() {
       <div className="subtle-grid pointer-events-none absolute inset-0 opacity-30" />
 
       <header className="relative z-10 border-b border-white/10 bg-slate-950/35 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 md:px-6">
+        <div className="content-shell flex items-center justify-between py-4">
           <Link href="/" className="text-lg font-bold tracking-tight text-slate-100">
             Samantha
             <span className="ml-2 text-xs font-medium text-sky-200/80">Medical Document AI</span>
@@ -185,7 +185,7 @@ export default function UploadPage() {
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-14 pt-10 md:px-6">
+      <main className="content-shell relative z-10 pb-14 pt-10">
         <section className="mb-6">
           <h1 className="text-3xl font-semibold text-slate-100 md:text-4xl">Upload Document</h1>
           <p className="mt-2 max-w-3xl text-sm text-slate-300/78 md:text-base">

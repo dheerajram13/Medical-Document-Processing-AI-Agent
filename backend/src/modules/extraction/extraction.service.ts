@@ -4,6 +4,7 @@ import axios from 'axios';
 import Anthropic from '@anthropic-ai/sdk';
 
 export interface ExtractedFields {
+  // Core 7 fields (required)
   patientName: string;
   patientNameConfidence: number;
   reportDate: string;
@@ -18,6 +19,19 @@ export interface ExtractedFields {
   assignedDoctorConfidence: number;
   category: string;
   categoryConfidence: number;
+  // Additional fields (bonus)
+  patientDob: string | null;
+  patientDobConfidence: number;
+  patientId: string | null;
+  patientIdConfidence: number;
+  specialist: string | null;
+  specialistConfidence: number;
+  facility: string | null;
+  facilityConfidence: number;
+  urgency: 'Normal' | 'Urgent' | 'Critical';
+  urgencyConfidence: number;
+  summary: string | null;
+  summaryConfidence: number;
 }
 
 type AIProvider = 'gemini' | 'claude';
@@ -37,7 +51,8 @@ export class ExtractionService {
 
   constructor(private configService: ConfigService) {
     // Determine which AI provider to use
-    const providerConfig = this.configService.get<string>('AI_PROVIDER') || 'gemini';
+    const providerConfig =
+      this.configService.get<string>('AI_PROVIDER') || 'gemini';
     this.provider = providerConfig as AIProvider;
 
     // Initialize Gemini if available
@@ -56,7 +71,9 @@ export class ExtractionService {
 
     // Validate at least one provider is configured
     if (!this.geminiApiKey && !this.claudeClient) {
-      throw new Error('No AI provider configured. Please set GEMINI_API_KEY or ANTHROPIC_API_KEY');
+      throw new Error(
+        'No AI provider configured. Please set GEMINI_API_KEY or ANTHROPIC_API_KEY',
+      );
     }
 
     // Set default provider based on availability
@@ -78,7 +95,9 @@ export class ExtractionService {
       }
     }
 
-    this.logger.log(`AI Extraction Service initialized with provider: ${this.provider.toUpperCase()}`);
+    this.logger.log(
+      `AI Extraction Service initialized with provider: ${this.provider.toUpperCase()}`,
+    );
   }
 
   /**
@@ -90,7 +109,9 @@ export class ExtractionService {
     extractedFields: ExtractedFields;
     rawResponse: any;
   }> {
-    this.logger.log(`Starting AI extraction with ${this.provider.toUpperCase()}`);
+    this.logger.log(
+      `Starting AI extraction with ${this.provider.toUpperCase()}`,
+    );
 
     try {
       if (this.provider === 'gemini') {
@@ -105,10 +126,13 @@ export class ExtractionService {
 
       // Try fallback to other provider if available
       const fallbackProvider = this.provider === 'gemini' ? 'claude' : 'gemini';
-      const canFallback = fallbackProvider === 'gemini' ? this.geminiApiKey : this.claudeClient;
+      const canFallback =
+        fallbackProvider === 'gemini' ? this.geminiApiKey : this.claudeClient;
 
       if (canFallback) {
-        this.logger.warn(`Attempting fallback to ${fallbackProvider.toUpperCase()}`);
+        this.logger.warn(
+          `Attempting fallback to ${fallbackProvider.toUpperCase()}`,
+        );
         try {
           if (fallbackProvider === 'gemini') {
             return await this.extractWithGemini(ocrText);
@@ -116,8 +140,12 @@ export class ExtractionService {
             return await this.extractWithClaude(ocrText);
           }
         } catch (fallbackError) {
-          this.logger.error(`Fallback to ${fallbackProvider} also failed: ${fallbackError.message}`);
-          throw new Error(`All AI providers failed. Last error: ${fallbackError.message}`);
+          this.logger.error(
+            `Fallback to ${fallbackProvider} also failed: ${fallbackError.message}`,
+          );
+          throw new Error(
+            `All AI providers failed. Last error: ${fallbackError.message}`,
+          );
         }
       }
 
@@ -228,20 +256,29 @@ export class ExtractionService {
     return `You are a medical document processing assistant. Extract the following fields from the provided medical document text.
 
 For each field, provide:
-1. The extracted value
+1. The extracted value (use null if not found)
 2. A confidence score (0.0 to 1.0) indicating how confident you are in the extraction
 
-**Fields to extract:**
+**Core fields to extract (required):**
 
 1. **Patient Name** - Full name of the patient
-2. **Report Date** - Date of the medical report (format: YYYY-MM-DD)
+2. **Report Date** - Date of the medical report (format: YYYY-MM-DD). Must be a valid calendar date.
 3. **Subject** - Brief subject/title describing the document (e.g., "Ultrasound Scrotum Report")
-4. **Source Contact** - The referring doctor or medical practice name
+4. **Source Contact** - The referring doctor or medical practice name that sent/created the document
 5. **Store In** - Categorize as either "Investigations" or "Correspondence"
    - Use "Investigations" for test results, imaging reports, pathology, etc.
-   - Use "Correspondence" for referral letters, consultation notes, etc.
-6. **Assigned Doctor** - The doctor who should review this (often the referring doctor)
-7. **Category** - Medical category (e.g., "Radiology", "Pathology", "Cardiology", "General")
+   - Use "Correspondence" for referral letters, consultation notes, discharge summaries, etc.
+6. **Assigned Doctor** - The GP doctor who should review this (the referring GP, NOT the reporting specialist)
+7. **Category** - Must be one of: "Medical imaging report", "Pathology results", "Discharge summary", "Referral letter", "Letter", "ECG", "Certificate", "Allied health letter", "Immunisation", "Clinical notes", "Consent form", "Admissions summary", "Advance care planning", "Clinical photograph", "DAS21", "Email", "Form", "Indigenous PIP", "MyHealth registration", "New PT registration form", "Patient consent", "Record request", "Workcover", "Workcover consent"
+
+**Additional fields to extract (if available):**
+
+8. **Patient DOB** - Patient date of birth (format: YYYY-MM-DD). Must be a valid calendar date.
+9. **Patient ID** - Medical Record Number (MRN) or patient identifier
+10. **Specialist** - The specialist/reporting doctor who authored the report (different from the assigned GP)
+11. **Facility** - Hospital or clinic name where the report was generated
+12. **Urgency** - "Normal", "Urgent", or "Critical" based on the document content
+13. **Summary** - A brief 1-2 sentence summary of the key findings or purpose of the document
 
 **Response format:**
 Return ONLY a valid JSON object with this exact structure (no markdown, no explanation):
@@ -260,7 +297,19 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no expla
   "assignedDoctor": "string",
   "assignedDoctorConfidence": 0.75,
   "category": "string",
-  "categoryConfidence": 0.90
+  "categoryConfidence": 0.90,
+  "patientDob": "YYYY-MM-DD or null",
+  "patientDobConfidence": 0.90,
+  "patientId": "string or null",
+  "patientIdConfidence": 0.85,
+  "specialist": "string or null",
+  "specialistConfidence": 0.80,
+  "facility": "string or null",
+  "facilityConfidence": 0.85,
+  "urgency": "Normal",
+  "urgencyConfidence": 0.70,
+  "summary": "string or null",
+  "summaryConfidence": 0.80
 }
 
 **Document Text:**
@@ -284,6 +333,20 @@ Remember: Return ONLY the JSON object, nothing else.`;
 
       // Validate required fields
       this.validateExtractedFields(parsed);
+
+      // Fill defaults for optional fields if AI didn't return them
+      parsed.patientDob = parsed.patientDob || null;
+      parsed.patientDobConfidence = parsed.patientDobConfidence ?? 0;
+      parsed.patientId = parsed.patientId || null;
+      parsed.patientIdConfidence = parsed.patientIdConfidence ?? 0;
+      parsed.specialist = parsed.specialist || null;
+      parsed.specialistConfidence = parsed.specialistConfidence ?? 0;
+      parsed.facility = parsed.facility || null;
+      parsed.facilityConfidence = parsed.facilityConfidence ?? 0;
+      parsed.urgency = parsed.urgency || 'Normal';
+      parsed.urgencyConfidence = parsed.urgencyConfidence ?? 0.5;
+      parsed.summary = parsed.summary || null;
+      parsed.summaryConfidence = parsed.summaryConfidence ?? 0;
 
       return parsed as ExtractedFields;
     } catch (error) {
@@ -321,7 +384,10 @@ Remember: Return ONLY the JSON object, nothing else.`;
     }
 
     // Validate storeIn values
-    if (data.storeIn !== 'Investigations' && data.storeIn !== 'Correspondence') {
+    if (
+      data.storeIn !== 'Investigations' &&
+      data.storeIn !== 'Correspondence'
+    ) {
       throw new Error(
         `Invalid storeIn value: ${data.storeIn}. Must be "Investigations" or "Correspondence"`,
       );

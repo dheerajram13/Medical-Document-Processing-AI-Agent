@@ -4,7 +4,10 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { OcrService } from '../ocr/ocr.service';
 import { ExtractionService } from '../extraction/extraction.service';
 
-type ExtractedLookupColumn = 'patient_name' | 'source_contact' | 'assigned_doctor';
+type ExtractedLookupColumn =
+  | 'patient_name'
+  | 'source_contact'
+  | 'assigned_doctor';
 
 @Injectable()
 export class DocumentsService {
@@ -36,9 +39,7 @@ export class DocumentsService {
    * 5. Save extracted data to database
    * 6. Update document status
    */
-  async processDocument(
-    file: Express.Multer.File,
-  ): Promise<{
+  async processDocument(file: Express.Multer.File): Promise<{
     documentId: string;
     ocrResult: any;
     extractedData: any;
@@ -94,7 +95,9 @@ export class DocumentsService {
       } catch (error) {
         aiExtractionFailed = true;
         aiErrorMessage = error.message;
-        this.logger.warn(`AI extraction failed: ${error.message}. Document will be saved with OCR data only for manual review.`);
+        this.logger.warn(
+          `AI extraction failed: ${error.message}. Document will be saved with OCR data only for manual review.`,
+        );
 
         // Create empty extracted fields for manual entry
         aiResult = {
@@ -113,6 +116,18 @@ export class DocumentsService {
             assignedDoctorConfidence: 0,
             category: 'Uncategorized',
             categoryConfidence: 0,
+            patientDob: null,
+            patientDobConfidence: 0,
+            patientId: null,
+            patientIdConfidence: 0,
+            specialist: null,
+            specialistConfidence: 0,
+            facility: null,
+            facilityConfidence: 0,
+            urgency: 'Normal',
+            urgencyConfidence: 0,
+            summary: null,
+            summaryConfidence: 0,
           },
           rawResponse: {
             provider: 'none',
@@ -211,6 +226,20 @@ export class DocumentsService {
   /**
    * Save extracted data to database
    */
+  /**
+   * Validate a date string is a real date (e.g. reject 2022-02-30)
+   */
+  private sanitizeDate(dateStr: string | null | undefined): string | null {
+    if (!dateStr) return null;
+    const match = /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
+    if (!match) return null;
+    const d = new Date(`${dateStr}T00:00:00Z`);
+    if (Number.isNaN(d.getTime())) return null;
+    // Verify the date round-trips (catches things like Feb 30)
+    if (d.toISOString().slice(0, 10) !== dateStr) return null;
+    return dateStr;
+  }
+
   private async saveExtractedData(
     documentId: string,
     ocrResult: any,
@@ -224,7 +253,7 @@ export class DocumentsService {
         document_id: documentId,
         patient_name: fields.patientName,
         patient_name_confidence: fields.patientNameConfidence,
-        report_date: fields.reportDate,
+        report_date: this.sanitizeDate(fields.reportDate),
         report_date_confidence: fields.reportDateConfidence,
         subject: fields.subject,
         subject_confidence: fields.subjectConfidence,
@@ -236,6 +265,18 @@ export class DocumentsService {
         assigned_doctor_confidence: fields.assignedDoctorConfidence,
         category: fields.category,
         category_confidence: fields.categoryConfidence,
+        patient_dob: this.sanitizeDate(fields.patientDob),
+        patient_dob_confidence: fields.patientDobConfidence ?? 0,
+        patient_id: fields.patientId ?? null,
+        patient_id_confidence: fields.patientIdConfidence ?? 0,
+        specialist: fields.specialist ?? null,
+        specialist_confidence: fields.specialistConfidence ?? 0,
+        facility: fields.facility ?? null,
+        facility_confidence: fields.facilityConfidence ?? 0,
+        urgency: fields.urgency ?? 'Normal',
+        urgency_confidence: fields.urgencyConfidence ?? 0.5,
+        summary: fields.summary ?? null,
+        summary_confidence: fields.summaryConfidence ?? 0,
         raw_extraction: aiResult.rawResponse,
       })
       .select('id')
@@ -405,7 +446,11 @@ export class DocumentsService {
    * Lookup helpers for review form dropdown/search fields.
    */
   async getPatientLookup(query = ''): Promise<string[]> {
-    const fromPatientsTable = await this.getLookupFromTable('patients', 'full_name', query);
+    const fromPatientsTable = await this.getLookupFromTable(
+      'patients',
+      'full_name',
+      query,
+    );
     if (fromPatientsTable.length > 0) {
       return fromPatientsTable;
     }
@@ -414,7 +459,12 @@ export class DocumentsService {
   }
 
   async getDoctorLookup(query = ''): Promise<string[]> {
-    const fromDoctorsTable = await this.getLookupFromTable('doctors', 'full_name', query, true);
+    const fromDoctorsTable = await this.getLookupFromTable(
+      'doctors',
+      'full_name',
+      query,
+      true,
+    );
     if (fromDoctorsTable.length > 0) {
       return fromDoctorsTable;
     }
@@ -423,7 +473,11 @@ export class DocumentsService {
   }
 
   async getSourceContactLookup(query = ''): Promise<string[]> {
-    const fromSourceContactsTable = await this.getLookupFromTable('source_contacts', 'name', query);
+    const fromSourceContactsTable = await this.getLookupFromTable(
+      'source_contacts',
+      'name',
+      query,
+    );
     if (fromSourceContactsTable.length > 0) {
       return fromSourceContactsTable;
     }
@@ -434,10 +488,7 @@ export class DocumentsService {
   /**
    * Reject document (mark as failed)
    */
-  async rejectDocument(
-    documentId: string,
-    reason?: string,
-  ): Promise<void> {
+  async rejectDocument(documentId: string, reason?: string): Promise<void> {
     this.logger.log(`Rejecting document: ${documentId}`);
 
     const { error } = await this.supabase
@@ -499,11 +550,18 @@ export class DocumentsService {
 
     if (error) {
       // Some environments may not have these lookup tables yet.
-      if (error.code === 'PGRST205' || /does not exist|relation/i.test(error.message)) {
-        this.logger.warn(`Lookup table unavailable (${tableName}), falling back to extracted_data.`);
+      if (
+        error.code === 'PGRST205' ||
+        /does not exist|relation/i.test(error.message)
+      ) {
+        this.logger.warn(
+          `Lookup table unavailable (${tableName}), falling back to extracted_data.`,
+        );
         return [];
       }
-      throw new Error(`Failed lookup on ${tableName}.${column}: ${error.message}`);
+      throw new Error(
+        `Failed lookup on ${tableName}.${column}: ${error.message}`,
+      );
     }
 
     const rows = Array.isArray(data)
@@ -511,7 +569,7 @@ export class DocumentsService {
       : [];
 
     return this.normalizeLookupValues(
-      rows.map((row) => (typeof row[column] === 'string' ? (row[column] as string) : null)),
+      rows.map((row) => (typeof row[column] === 'string' ? row[column] : null)),
     );
   }
 
@@ -540,11 +598,13 @@ export class DocumentsService {
       : [];
 
     return this.normalizeLookupValues(
-      rows.map((row) => (typeof row[column] === 'string' ? (row[column] as string) : null)),
+      rows.map((row) => (typeof row[column] === 'string' ? row[column] : null)),
     ).slice(0, 20);
   }
 
-  private normalizeLookupValues(values: Array<string | null | undefined>): string[] {
+  private normalizeLookupValues(
+    values: Array<string | null | undefined>,
+  ): string[] {
     const seen = new Set<string>();
     for (const rawValue of values) {
       const value = rawValue?.trim();

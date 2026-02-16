@@ -17,8 +17,7 @@ export class ExtractionController {
     );
 
     try {
-      const result =
-        await this.extractionService.extractMedicalFields(ocrText);
+      const result = await this.extractionService.extractMedicalFields(ocrText);
 
       return {
         success: true,

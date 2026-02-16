@@ -14,14 +14,10 @@ export class OcrService {
     const endpoint = this.configService.get<string>(
       'AZURE_DOC_INTELLIGENCE_ENDPOINT',
     );
-    const apiKey = this.configService.get<string>(
-      'AZURE_DOC_INTELLIGENCE_KEY',
-    );
+    const apiKey = this.configService.get<string>('AZURE_DOC_INTELLIGENCE_KEY');
 
     if (!endpoint || !apiKey) {
-      throw new Error(
-        'Azure Document Intelligence credentials not configured',
-      );
+      throw new Error('Azure Document Intelligence credentials not configured');
     }
 
     this.client = new DocumentAnalysisClient(

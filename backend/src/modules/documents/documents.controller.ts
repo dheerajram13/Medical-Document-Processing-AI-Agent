@@ -138,7 +138,9 @@ export class DocumentsController {
         data,
       };
     } catch (error) {
-      this.logger.error(`Failed to load source contact lookup: ${error.message}`);
+      this.logger.error(
+        `Failed to load source contact lookup: ${error.message}`,
+      );
       return {
         success: false,
         error: error.message,
@@ -150,10 +152,7 @@ export class DocumentsController {
    * Update extracted data (user corrections)
    */
   @Post(':id/update')
-  async updateExtractedData(
-    @Param('id') id: string,
-    @Body() updates: any,
-  ) {
+  async updateExtractedData(@Param('id') id: string, @Body() updates: any) {
     this.logger.log(`Update request for document: ${id}`);
 
     try {
@@ -220,5 +219,4 @@ export class DocumentsController {
       };
     }
   }
-
 }
