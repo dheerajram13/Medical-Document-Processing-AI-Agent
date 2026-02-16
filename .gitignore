@@ -112,3 +112,4 @@ dump.rdb
 *.tsbuildinfo
 next-env.d.ts
 output/
+docs/module-0/
