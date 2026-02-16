@@ -1,10 +1,10 @@
-# Samantha - Medical Document Processing AI Agent
+# Medical Document AI - Medical Document Processing AI Agent
 
 AI-powered system for automated extraction of medical document metadata with human review workflow.
 
 ## 🎯 Project Overview
 
-**Samantha** processes incoming medical documents (faxes, scans, emails) and automatically extracts 7 key metadata fields using AI, presenting them for human review before importing into Practice Management Systems (PMS).
+**Medical Document AI** processes incoming medical documents (faxes, scans, emails) and automatically extracts 7 key metadata fields using AI, presenting them for human review before importing into Practice Management Systems (PMS).
 
 ### Key Features
 - 📄 **OCR Extraction** - Azure Document Intelligence (>95% accuracy)

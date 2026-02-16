@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { OcrModule } from './modules/ocr/ocr.module';
 import { ExtractionModule } from './modules/extraction/extraction.module';
+import { DocumentsModule } from './modules/documents/documents.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { ExtractionModule } from './modules/extraction/extraction.module';
     }),
     OcrModule,
     ExtractionModule,
+    DocumentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
