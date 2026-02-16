@@ -1,0 +1,113 @@
+# Project-specific exclusions
+*.pdf
+*.PDF
+plan.md
+task.txt
+input/
+*.txt
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+*.lcov
+.nyc_output
+
+# Production
+build/
+dist/
+.next/
+out/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+*.env
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS files
+.DS_Store
+*.swp
+*.swo
+*~
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.history/
+
+# Python (for PaddleOCR if used)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraform.lock.hcl
+
+# AWS
+.aws/
+*.pem
+
+# Google Cloud
+*-service-account.json
+*.json.key
+gcloud-key.json
+samantha-ai-*.json
+*-cd4f96219b94.json
+
+# Azure
+.azure/
+
+# Redis
+dump.rdb
+
+# Supabase
+.supabase/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Lock files (keep for consistency)
+# Uncomment if you want to exclude
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Misc
+.vercel
+.turbo
+*.tsbuildinfo
+next-env.d.ts

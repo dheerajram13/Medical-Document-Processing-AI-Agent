@@ -1,0 +1,80 @@
+[
+  {
+    "document": "MRI Report",
+    "expected": {
+      "patient_name": "Stella ROBYN ENRIQUES",
+      "report_date": "2025-01-13",
+      "subject": "MRI Lumbar Spine",
+      "source_contact": "St Vincent's Hospital Medical Imaging",
+      "store_in": "Investigations",
+      "assigned_doctor": "Dr Sally Wood",
+      "category": "Medical imaging report"
+    },
+    "prompts": {
+      "detailed": {
+        "success": false,
+        "error": "403 This API method requires billing to be enabled. Please enable billing on project #samantha-ai-487602 by visiting https://console.developers.google.com/billing/enable?project=samantha-ai-487602 then retry. If you enabled billing for this project recently, wait a few minutes for the action to propagate to our systems and retry. [reason: \"BILLING_DISABLED\"\ndomain: \"googleapis.com\"\nmetadata {\n  key: \"service\"\n  value: \"aiplatform.googleapis.com\"\n}\nmetadata {\n  key: \"containerInfo\"\n  value: \"samantha-ai-487602\"\n}\nmetadata {\n  key: \"consumer\"\n  value: \"projects/samantha-ai-487602\"\n}\nmetadata {\n  key: \"consoleUrl\"\n  value: \"https://console.developers.google.com/billing/enable?project=samantha-ai-487602\"\n}\n, locale: \"en-US\"\nmessage: \"This API method requires billing to be enabled. Please enable billing on project #samantha-ai-487602 by visiting https://console.developers.google.com/billing/enable?project=samantha-ai-487602 then retry. If you enabled billing for this project recently, wait a few minutes for the action to propagate to our systems and retry.\"\n, links {\n  description: \"Google developers console billing\"\n  url: \"https://console.developers.google.com/billing/enable?project=samantha-ai-487602\"\n}\n]"
+      },
+      "concise": {
+        "success": false,
+        "error": "403 This API method requires billing to be enabled. Please enable billing on project #samantha-ai-487602 by visiting https://console.developers.google.com/billing/enable?project=samantha-ai-487602 then retry. If you enabled billing for this project recently, wait a few minutes for the action to propagate to our systems and retry. [reason: \"BILLING_DISABLED\"\ndomain: \"googleapis.com\"\nmetadata {\n  key: \"service\"\n  value: \"aiplatform.googleapis.com\"\n}\nmetadata {\n  key: \"containerInfo\"\n  value: \"samantha-ai-487602\"\n}\nmetadata {\n  key: \"consumer\"\n  value: \"projects/samantha-ai-487602\"\n}\nmetadata {\n  key: \"consoleUrl\"\n  value: \"https://console.developers.google.com/billing/enable?project=samantha-ai-487602\"\n}\n, locale: \"en-US\"\nmessage: \"This API method requires billing to be enabled. Please enable billing on project #samantha-ai-487602 by visiting https://console.developers.google.com/billing/enable?project=samantha-ai-487602 then retry. If you enabled billing for this project recently, wait a few minutes for the action to propagate to our systems and retry.\"\n, links {\n  description: \"Google developers console billing\"\n  url: \"https://console.developers.google.com/billing/enable?project=samantha-ai-487602\"\n}\n]"
+      },
+      "role_based": {
+        "success": false,
+        "error": "403 This API method requires billing to be enabled. Please enable billing on project #samantha-ai-487602 by visiting https://console.developers.google.com/billing/enable?project=samantha-ai-487602 then retry. If you enabled billing for this project recently, wait a few minutes for the action to propagate to our systems and retry. [reason: \"BILLING_DISABLED\"\ndomain: \"googleapis.com\"\nmetadata {\n  key: \"service\"\n  value: \"aiplatform.googleapis.com\"\n}\nmetadata {\n  key: \"containerInfo\"\n  value: \"samantha-ai-487602\"\n}\nmetadata {\n  key: \"consumer\"\n  value: \"projects/samantha-ai-487602\"\n}\nmetadata {\n  key: \"consoleUrl\"\n  value: \"https://console.developers.google.com/billing/enable?project=samantha-ai-487602\"\n}\n, locale: \"en-US\"\nmessage: \"This API method requires billing to be enabled. Please enable billing on project #samantha-ai-487602 by visiting https://console.developers.google.com/billing/enable?project=samantha-ai-487602 then retry. If you enabled billing for this project recently, wait a few minutes for the action to propagate to our systems and retry.\"\n, links {\n  description: \"Google developers console billing\"\n  url: \"https://console.developers.google.com/billing/enable?project=samantha-ai-487602\"\n}\n]"
+      }
+    }
+  },
+  {
+    "document": "Colonoscopy Report",
+    "expected": {
+      "patient_name": "Ms Shelley Lucy Manea",
+      "report_date": "2025-01-09",
+      "subject": "Colonoscopy",
+      "source_contact": "Double Bay Day Hospital",
+      "store_in": "Investigations",
+      "assigned_doctor": "Dr Naomi Heath",
+      "category": "Medical imaging report"
+    },
+    "prompts": {
+      "detailed": {
+        "success": false,
+        "error": "403 This API method requires billing to be enabled. Please enable billing on project #samantha-ai-487602 by visiting https://console.developers.google.com/billing/enable?project=samantha-ai-487602 then retry. If you enabled billing for this project recently, wait a few minutes for the action to propagate to our systems and retry. [reason: \"BILLING_DISABLED\"\ndomain: \"googleapis.com\"\nmetadata {\n  key: \"service\"\n  value: \"aiplatform.googleapis.com\"\n}\nmetadata {\n  key: \"containerInfo\"\n  value: \"samantha-ai-487602\"\n}\nmetadata {\n  key: \"consumer\"\n  value: \"projects/samantha-ai-487602\"\n}\nmetadata {\n  key: \"consoleUrl\"\n  value: \"https://console.developers.google.com/billing/enable?project=samantha-ai-487602\"\n}\n, locale: \"en-US\"\nmessage: \"This API method requires billing to be enabled. Please enable billing on project #samantha-ai-487602 by visiting https://console.developers.google.com/billing/enable?project=samantha-ai-487602 then retry. If you enabled billing for this project recently, wait a few minutes for the action to propagate to our systems and retry.\"\n, links {\n  description: \"Google developers console billing\"\n  url: \"https://console.developers.google.com/billing/enable?project=samantha-ai-487602\"\n}\n]"
+      },
+      "concise": {
+        "success": false,
+        "error": "403 This API method requires billing to be enabled. Please enable billing on project #samantha-ai-487602 by visiting https://console.developers.google.com/billing/enable?project=samantha-ai-487602 then retry. If you enabled billing for this project recently, wait a few minutes for the action to propagate to our systems and retry. [reason: \"BILLING_DISABLED\"\ndomain: \"googleapis.com\"\nmetadata {\n  key: \"service\"\n  value: \"aiplatform.googleapis.com\"\n}\nmetadata {\n  key: \"containerInfo\"\n  value: \"samantha-ai-487602\"\n}\nmetadata {\n  key: \"consumer\"\n  value: \"projects/samantha-ai-487602\"\n}\nmetadata {\n  key: \"consoleUrl\"\n  value: \"https://console.developers.google.com/billing/enable?project=samantha-ai-487602\"\n}\n, locale: \"en-US\"\nmessage: \"This API method requires billing to be enabled. Please enable billing on project #samantha-ai-487602 by visiting https://console.developers.google.com/billing/enable?project=samantha-ai-487602 then retry. If you enabled billing for this project recently, wait a few minutes for the action to propagate to our systems and retry.\"\n, links {\n  description: \"Google developers console billing\"\n  url: \"https://console.developers.google.com/billing/enable?project=samantha-ai-487602\"\n}\n]"
+      },
+      "role_based": {
+        "success": false,
+        "error": "403 This API method requires billing to be enabled. Please enable billing on project #samantha-ai-487602 by visiting https://console.developers.google.com/billing/enable?project=samantha-ai-487602 then retry. If you enabled billing for this project recently, wait a few minutes for the action to propagate to our systems and retry. [reason: \"BILLING_DISABLED\"\ndomain: \"googleapis.com\"\nmetadata {\n  key: \"service\"\n  value: \"aiplatform.googleapis.com\"\n}\nmetadata {\n  key: \"containerInfo\"\n  value: \"samantha-ai-487602\"\n}\nmetadata {\n  key: \"consumer\"\n  value: \"projects/samantha-ai-487602\"\n}\nmetadata {\n  key: \"consoleUrl\"\n  value: \"https://console.developers.google.com/billing/enable?project=samantha-ai-487602\"\n}\n, locale: \"en-US\"\nmessage: \"This API method requires billing to be enabled. Please enable billing on project #samantha-ai-487602 by visiting https://console.developers.google.com/billing/enable?project=samantha-ai-487602 then retry. If you enabled billing for this project recently, wait a few minutes for the action to propagate to our systems and retry.\"\n, links {\n  description: \"Google developers console billing\"\n  url: \"https://console.developers.google.com/billing/enable?project=samantha-ai-487602\"\n}\n]"
+      }
+    }
+  },
+  {
+    "document": "Eye Centre Letter",
+    "expected": {
+      "patient_name": "Miss Geneveve McDonald",
+      "report_date": "2025-01-08",
+      "subject": "Paediatric Ophthalmology Review",
+      "source_contact": "Eastern Eye Centre",
+      "store_in": "Correspondence",
+      "assigned_doctor": "Dr Sally Wood",
+      "category": "Allied health letter"
+    },
+    "prompts": {
+      "detailed": {
+        "success": false,
+        "error": "403 This API method requires billing to be enabled. Please enable billing on project #samantha-ai-487602 by visiting https://console.developers.google.com/billing/enable?project=samantha-ai-487602 then retry. If you enabled billing for this project recently, wait a few minutes for the action to propagate to our systems and retry. [reason: \"BILLING_DISABLED\"\ndomain: \"googleapis.com\"\nmetadata {\n  key: \"service\"\n  value: \"aiplatform.googleapis.com\"\n}\nmetadata {\n  key: \"containerInfo\"\n  value: \"samantha-ai-487602\"\n}\nmetadata {\n  key: \"consumer\"\n  value: \"projects/samantha-ai-487602\"\n}\nmetadata {\n  key: \"consoleUrl\"\n  value: \"https://console.developers.google.com/billing/enable?project=samantha-ai-487602\"\n}\n, locale: \"en-US\"\nmessage: \"This API method requires billing to be enabled. Please enable billing on project #samantha-ai-487602 by visiting https://console.developers.google.com/billing/enable?project=samantha-ai-487602 then retry. If you enabled billing for this project recently, wait a few minutes for the action to propagate to our systems and retry.\"\n, links {\n  description: \"Google developers console billing\"\n  url: \"https://console.developers.google.com/billing/enable?project=samantha-ai-487602\"\n}\n]"
+      },
+      "concise": {
+        "success": false,
+        "error": "403 This API method requires billing to be enabled. Please enable billing on project #samantha-ai-487602 by visiting https://console.developers.google.com/billing/enable?project=samantha-ai-487602 then retry. If you enabled billing for this project recently, wait a few minutes for the action to propagate to our systems and retry. [reason: \"BILLING_DISABLED\"\ndomain: \"googleapis.com\"\nmetadata {\n  key: \"service\"\n  value: \"aiplatform.googleapis.com\"\n}\nmetadata {\n  key: \"containerInfo\"\n  value: \"samantha-ai-487602\"\n}\nmetadata {\n  key: \"consumer\"\n  value: \"projects/samantha-ai-487602\"\n}\nmetadata {\n  key: \"consoleUrl\"\n  value: \"https://console.developers.google.com/billing/enable?project=samantha-ai-487602\"\n}\n, locale: \"en-US\"\nmessage: \"This API method requires billing to be enabled. Please enable billing on project #samantha-ai-487602 by visiting https://console.developers.google.com/billing/enable?project=samantha-ai-487602 then retry. If you enabled billing for this project recently, wait a few minutes for the action to propagate to our systems and retry.\"\n, links {\n  description: \"Google developers console billing\"\n  url: \"https://console.developers.google.com/billing/enable?project=samantha-ai-487602\"\n}\n]"
+      },
+      "role_based": {
+        "success": false,
+        "error": "403 This API method requires billing to be enabled. Please enable billing on project #samantha-ai-487602 by visiting https://console.developers.google.com/billing/enable?project=samantha-ai-487602 then retry. If you enabled billing for this project recently, wait a few minutes for the action to propagate to our systems and retry. [reason: \"BILLING_DISABLED\"\ndomain: \"googleapis.com\"\nmetadata {\n  key: \"service\"\n  value: \"aiplatform.googleapis.com\"\n}\nmetadata {\n  key: \"containerInfo\"\n  value: \"samantha-ai-487602\"\n}\nmetadata {\n  key: \"consumer\"\n  value: \"projects/samantha-ai-487602\"\n}\nmetadata {\n  key: \"consoleUrl\"\n  value: \"https://console.developers.google.com/billing/enable?project=samantha-ai-487602\"\n}\n, locale: \"en-US\"\nmessage: \"This API method requires billing to be enabled. Please enable billing on project #samantha-ai-487602 by visiting https://console.developers.google.com/billing/enable?project=samantha-ai-487602 then retry. If you enabled billing for this project recently, wait a few minutes for the action to propagate to our systems and retry.\"\n, links {\n  description: \"Google developers console billing\"\n  url: \"https://console.developers.google.com/billing/enable?project=samantha-ai-487602\"\n}\n]"
+      }
+    }
+  }
+]

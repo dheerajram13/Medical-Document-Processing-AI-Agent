@@ -1,0 +1,197 @@
+[
+  {
+    "document": "MRI Report",
+    "success": true,
+    "accuracy": 100.0,
+    "extracted": {
+      "patient_name": "Stella ROBYN ENRIQUES",
+      "patient_name_confidence": 0.98,
+      "report_date": "2025-01-13",
+      "report_date_confidence": 0.98,
+      "subject": "MRI Lumbar Spine",
+      "subject_confidence": 0.95,
+      "source_contact": "St Vincent's Hospital Medical Imaging",
+      "source_contact_confidence": 0.96,
+      "store_in": "Investigations",
+      "store_in_confidence": 0.99,
+      "assigned_doctor": "DR Sally Wood",
+      "assigned_doctor_confidence": 0.97,
+      "category": "Medical imaging report",
+      "category_confidence": 0.99
+    },
+    "field_results": {
+      "patient_name": {
+        "extracted": "Stella ROBYN ENRIQUES",
+        "expected": "Stella ROBYN ENRIQUES",
+        "match": true,
+        "confidence": 0.98
+      },
+      "report_date": {
+        "extracted": "2025-01-13",
+        "expected": "2025-01-13",
+        "match": true,
+        "confidence": 0.98
+      },
+      "subject": {
+        "extracted": "MRI Lumbar Spine",
+        "expected": "MRI Lumbar Spine",
+        "match": true,
+        "confidence": 0.95
+      },
+      "source_contact": {
+        "extracted": "St Vincent's Hospital Medical Imaging",
+        "expected": "St Vincent's Hospital Medical Imaging",
+        "match": true,
+        "confidence": 0.96
+      },
+      "store_in": {
+        "extracted": "Investigations",
+        "expected": "Investigations",
+        "match": true,
+        "confidence": 0.99
+      },
+      "assigned_doctor": {
+        "extracted": "DR Sally Wood",
+        "expected": "Dr Sally Wood",
+        "match": true,
+        "confidence": 0.97
+      },
+      "category": {
+        "extracted": "Medical imaging report",
+        "expected": "Medical imaging report",
+        "match": true,
+        "confidence": 0.99
+      }
+    }
+  },
+  {
+    "document": "Colonoscopy Report",
+    "success": true,
+    "accuracy": 85.71428571428571,
+    "extracted": {
+      "patient_name": "Ms Shelley Lucy Manea",
+      "patient_name_confidence": 0.99,
+      "report_date": "2025-01-09",
+      "report_date_confidence": 0.99,
+      "subject": "Colonoscopy Report",
+      "subject_confidence": 0.98,
+      "source_contact": "Double Bay Day Hospital",
+      "source_contact_confidence": 0.98,
+      "store_in": "Investigations",
+      "store_in_confidence": 0.99,
+      "assigned_doctor": "Dr Naomi Heath",
+      "assigned_doctor_confidence": 0.97,
+      "category": "Medical imaging report",
+      "category_confidence": 0.95
+    },
+    "field_results": {
+      "patient_name": {
+        "extracted": "Ms Shelley Lucy Manea",
+        "expected": "Ms Shelley Lucy Manea",
+        "match": true,
+        "confidence": 0.99
+      },
+      "report_date": {
+        "extracted": "2025-01-09",
+        "expected": "2025-01-09",
+        "match": true,
+        "confidence": 0.99
+      },
+      "subject": {
+        "extracted": "Colonoscopy Report",
+        "expected": "Colonoscopy",
+        "match": false,
+        "confidence": 0.98
+      },
+      "source_contact": {
+        "extracted": "Double Bay Day Hospital",
+        "expected": "Double Bay Day Hospital",
+        "match": true,
+        "confidence": 0.98
+      },
+      "store_in": {
+        "extracted": "Investigations",
+        "expected": "Investigations",
+        "match": true,
+        "confidence": 0.99
+      },
+      "assigned_doctor": {
+        "extracted": "Dr Naomi Heath",
+        "expected": "Dr Naomi Heath",
+        "match": true,
+        "confidence": 0.97
+      },
+      "category": {
+        "extracted": "Medical imaging report",
+        "expected": "Medical imaging report",
+        "match": true,
+        "confidence": 0.95
+      }
+    }
+  },
+  {
+    "document": "Eye Centre Letter",
+    "success": true,
+    "accuracy": 85.71428571428571,
+    "extracted": {
+      "patient_name": "Geneveve McDonald",
+      "patient_name_confidence": 0.99,
+      "report_date": "2024-10-24",
+      "report_date_confidence": 0.95,
+      "subject": "Paediatric Ophthalmology Review",
+      "subject_confidence": 0.93,
+      "source_contact": "Eastern Eye Centre",
+      "source_contact_confidence": 0.98,
+      "store_in": "Correspondence",
+      "store_in_confidence": 0.99,
+      "assigned_doctor": "Dr Sally Wood",
+      "assigned_doctor_confidence": 0.9,
+      "category": "Allied health letter",
+      "category_confidence": 0.97
+    },
+    "field_results": {
+      "patient_name": {
+        "extracted": "Geneveve McDonald",
+        "expected": "Miss Geneveve McDonald",
+        "match": true,
+        "confidence": 0.99
+      },
+      "report_date": {
+        "extracted": "2024-10-24",
+        "expected": "2025-01-08",
+        "match": false,
+        "confidence": 0.95
+      },
+      "subject": {
+        "extracted": "Paediatric Ophthalmology Review",
+        "expected": "Paediatric Ophthalmology Review",
+        "match": true,
+        "confidence": 0.93
+      },
+      "source_contact": {
+        "extracted": "Eastern Eye Centre",
+        "expected": "Eastern Eye Centre",
+        "match": true,
+        "confidence": 0.98
+      },
+      "store_in": {
+        "extracted": "Correspondence",
+        "expected": "Correspondence",
+        "match": true,
+        "confidence": 0.99
+      },
+      "assigned_doctor": {
+        "extracted": "Dr Sally Wood",
+        "expected": "Dr Sally Wood",
+        "match": true,
+        "confidence": 0.9
+      },
+      "category": {
+        "extracted": "Allied health letter",
+        "expected": "Allied health letter",
+        "match": true,
+        "confidence": 0.97
+      }
+    }
+  }
+]
