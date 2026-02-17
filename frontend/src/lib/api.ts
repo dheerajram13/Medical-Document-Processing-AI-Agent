@@ -3,6 +3,7 @@ import {
   ApiResponse,
   ProcessingResult,
   UpdateExtractedDataPayload,
+  OcrExtractionResult,
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
@@ -76,6 +77,14 @@ class ApiClient {
   async getSourceContactLookup(query: string): Promise<ApiResponse<string[]>> {
     const params = new URLSearchParams({ q: query });
     return this.fetch<string[]>(`/documents/lookups/sources?${params.toString()}`);
+  }
+
+  // OCR from signed URL (used for scanned PDFs without selectable text layer)
+  async extractTextFromUrl(url: string): Promise<ApiResponse<OcrExtractionResult>> {
+    return this.fetch<OcrExtractionResult>('/ocr/extract-url', {
+      method: 'POST',
+      body: JSON.stringify({ url }),
+    });
   }
 
   // Update extracted data

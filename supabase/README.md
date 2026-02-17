@@ -8,8 +8,7 @@
 2. **extracted_data** - Stores AI-extracted field data with confidence scores
 3. **review_queue** - Manages human review workflow
 4. **audit_log** - Tracks all actions and changes
-5. **pms_export_log** - Logs PMS export attempts and results
-6. **patients/doctors/source_contacts** - Optional lookup tables for review form typeahead
+5. **patients/doctors/source_contacts** - Optional lookup tables for review form typeahead
 
 ## Running Migrations
 
@@ -19,6 +18,7 @@
 2. Navigate to **SQL Editor**
 3. Run `migrations/001_initial_schema.sql`
 4. Run `migrations/002_extracted_data_extended_fields.sql`
+5. Run `migrations/003_review_workflow_fields.sql`
 
 ### Option 2: Supabase CLI (For local development)
 

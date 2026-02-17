@@ -1,6 +1,8 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+export const DISPLAY_TIME_ZONE = 'Australia/Sydney';
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
@@ -47,14 +49,37 @@ export function formatFileSize(bytes: number): string {
 
 // Format date
 export function formatDate(dateString: string): string {
-  const date = new Date(dateString);
-  return new Intl.DateTimeFormat('en-US', {
+  // Backend timestamps currently come as ISO strings without timezone suffix.
+  // Treat them as UTC for deterministic display, then render in Australia/Sydney.
+  const normalized = /(?:[zZ]|[+-]\d{2}:\d{2})$/.test(dateString)
+    ? dateString
+    : `${dateString}Z`;
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) {
+    return dateString;
+  }
+
+  return new Intl.DateTimeFormat('en-AU', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: DISPLAY_TIME_ZONE,
   }).format(date);
+}
+
+export function formatClockTime(value: Date): string {
+  if (Number.isNaN(value.getTime())) {
+    return '';
+  }
+
+  return new Intl.DateTimeFormat('en-AU', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZone: DISPLAY_TIME_ZONE,
+  }).format(value);
 }
 
 // Calculate overall confidence

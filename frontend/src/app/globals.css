@@ -300,3 +300,21 @@
     opacity: 1;
   }
 }
+
+/* PDF viewer highlight styles */
+.textLayer > span.pdf-highlight-fragment,
+.react-pdf__Page__textContent span.pdf-highlight-fragment {
+  margin: -1px;
+  padding: 1px;
+  border-radius: 3px;
+  background: rgba(250, 204, 21, 0.4) !important;
+  color: transparent;
+}
+
+.pdf-ocr-highlight-box {
+  position: absolute;
+  border: 2px solid rgba(251, 191, 36, 0.9);
+  background: rgba(251, 191, 36, 0.18);
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.35) inset;
+}

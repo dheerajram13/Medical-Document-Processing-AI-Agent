@@ -4,14 +4,12 @@ AI-powered system for automated extraction of medical document metadata with hum
 
 ## 🎯 Project Overview
 
-**Medical Document AI** processes incoming medical documents (faxes, scans, emails) and automatically extracts 7 key metadata fields using AI, presenting them for human review before importing into Practice Management Systems (PMS).
+**Medical Document AI** processes incoming medical documents (faxes, scans, emails) and automatically extracts 7 key metadata fields using AI, presenting them for human review before approval.
 
 ### Key Features
 - 📄 **OCR Extraction** - Azure Document Intelligence (>95% accuracy)
 - 🤖 **AI Field Extraction** - Google Gemini 2.5 Flash (90.5% accuracy)
-- 👁️ **Human Review** - Override and approve before PMS import
-- 🔄 **Queue Processing** - Background processing with Bull + Redis
-- 🏥 **PMS Integration** - Best Practice EHR & Halo Connect
+- 👁️ **Human Review** - Override and approve before filing
 - 📊 **Analytics Dashboard** - Accuracy tracking and audit logs
 
 ---
@@ -33,9 +31,6 @@ AI-powered system for automated extraction of medical document metadata with hum
 ### Backend
 - **NestJS** - API server
 - **Supabase (Postgres)** - Database
-- **Bull + Redis** - Queue management
-- **AWS S3** - Document backup storage
-
 ### Frontend
 - **Next.js 14** - React framework
 - **Tailwind CSS** - Styling
@@ -59,7 +54,6 @@ AI-powered system for automated extraction of medical document metadata with hum
 ### Prerequisites
 - Node.js 18+
 - Python 3.11+ (for testing scripts)
-- Redis (for queue)
 - Git
 
 ### Installation
@@ -120,7 +114,7 @@ Medical-Document-Processing-AI-Agent/
 │   │   │   ├── documents/           # Document upload & storage
 │   │   │   ├── ocr/                 # Azure OCR integration
 │   │   │   ├── extraction/          # AI field extraction
-│   │   │   └── (review/pms/queue modules planned)
+│   │   │   └── (review module planned)
 │   │   ├── common/
 │   │   └── main.ts
 │   └── package.json
@@ -221,8 +215,7 @@ See [docs/module-0/MODULE_0_COMPLETE.md](docs/module-0/MODULE_0_COMPLETE.md) for
 - [ ] Module 2: OCR integration
 - [ ] Module 3: AI extraction service
 - [ ] Module 4: Review workflow UI
-- [ ] Module 5: PMS integration (mock)
-- [ ] Module 6: Testing & deployment
+- [ ] Module 5: Testing & deployment
 
 ### Phase 2: Production Features
 - [ ] AWS infrastructure (EC2, S3)
@@ -235,7 +228,6 @@ See [docs/module-0/MODULE_0_COMPLETE.md](docs/module-0/MODULE_0_COMPLETE.md) for
 - [ ] Multi-tenant support
 - [ ] Advanced analytics
 - [ ] Machine learning improvements
-- [ ] Additional PMS integrations
 
 ---
 

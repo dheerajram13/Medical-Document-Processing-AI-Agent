@@ -33,6 +33,9 @@ export interface ExtractedData {
   assigned_doctor_confidence: number;
   category: string | null;
   category_confidence: number;
+  workflow_type: 'doctor_review_investigations' | 'standard_correspondence_review' | null;
+  requires_doctor_review: boolean | null;
+  workflow_reason: string | null;
   // Additional fields
   patient_dob: string | null;
   patient_dob_confidence: number;
@@ -67,8 +70,41 @@ export interface ProcessingResult {
     text: string;
     pages: number;
     confidence: number;
+    metadata?: OcrExtractionMetadata;
   };
   extractedData: Partial<ExtractedData>;
+}
+
+export interface OcrPoint {
+  x: number;
+  y: number;
+}
+
+export interface OcrLineLayout {
+  content: string;
+  polygon: OcrPoint[];
+}
+
+export interface OcrPageLayout {
+  pageNumber: number;
+  width: number | null;
+  height: number | null;
+  unit: string | null;
+  lines: number;
+  words: number;
+  lineItems: OcrLineLayout[];
+}
+
+export interface OcrExtractionMetadata {
+  model?: string;
+  pages?: OcrPageLayout[];
+}
+
+export interface OcrExtractionResult {
+  text: string;
+  pages: number;
+  confidence: number;
+  metadata?: OcrExtractionMetadata;
 }
 
 // Update payload

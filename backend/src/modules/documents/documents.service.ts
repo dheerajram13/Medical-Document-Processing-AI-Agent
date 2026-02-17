@@ -2,17 +2,102 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { OcrService } from '../ocr/ocr.service';
-import { ExtractionService } from '../extraction/extraction.service';
+import {
+  ExtractionService,
+  type ExtractedFields,
+} from '../extraction/extraction.service';
 
 type ExtractedLookupColumn =
   | 'patient_name'
   | 'source_contact'
   | 'assigned_doctor';
 
+type OcrResult = {
+  text: string;
+  pages: number;
+  confidence: number;
+  metadata?: unknown;
+};
+
+type StoreIn = 'Investigations' | 'Correspondence';
+
+type WorkflowType =
+  | 'doctor_review_investigations'
+  | 'standard_correspondence_review';
+
+type AiExtractionResult = {
+  extractedFields: ExtractedFields;
+  rawResponse: unknown;
+};
+
+type ExtractedDataSnapshot = {
+  id: string;
+  document_id: string;
+  patient_name: string | null;
+  report_date: string | null;
+  subject: string | null;
+  source_contact: string | null;
+  store_in: StoreIn | null;
+  store_in_confidence: number | null;
+  assigned_doctor: string | null;
+  category: string | null;
+  workflow_type: WorkflowType | null;
+  requires_doctor_review: boolean | null;
+  workflow_reason: string | null;
+  created_at: string;
+};
+
+const DOCUMENT_CATEGORIES = [
+  'Admissions summary',
+  'Advance care planning',
+  'Allied health letter',
+  'Certificate',
+  'Clinical notes',
+  'Clinical photograph',
+  'Consent form',
+  'DAS21',
+  'Discharge summary',
+  'ECG',
+  'Email',
+  'Form',
+  'Immunisation',
+  'Indigenous PIP',
+  'Letter',
+  'Medical imaging report',
+  'MyHealth registration',
+  'New PT registration form',
+  'Pathology results',
+  'Patient consent',
+  'Record request',
+  'Referral letter',
+  'Workcover',
+  'Workcover consent',
+] as const;
+
+const INVESTIGATION_CATEGORIES = new Set<string>([
+  'Medical imaging report',
+  'Pathology results',
+  'ECG',
+]);
+
+const CATEGORY_CANONICAL_MAP = new Map(
+  DOCUMENT_CATEGORIES.map((category) => [category.toLowerCase(), category]),
+);
+
+const LOOKUP_JUNK_PATTERN =
+  /\b(consent|privacy|confidential|legislation|do you|please|enter|select|tick|same as|relationship to|phone number|address|gender|date of birth|new patient form|personal details information sheet|intake form)\b/i;
+const LOOKUP_PLACEHOLDER_PATTERN =
+  /^(not specified|n\/?a|unknown|gp|none|null|undefined|as above)$/i;
+const ORGANISATION_HINT_PATTERN =
+  /\b(clinic|hospital|radiology|imaging|pathology|medical|centre|center|practice|laboratory|lab|health|specialist|diagnostic|surgery)\b/i;
+const NAME_TOKEN_PATTERN = /^[A-Za-z][A-Za-z'.-]*$/;
+const DOCTOR_PREFIX_PATTERN = /^(dr\.?|doctor)$/i;
+
 @Injectable()
 export class DocumentsService {
   private readonly logger = new Logger(DocumentsService.name);
   private supabase: SupabaseClient;
+  private workflowColumnsAvailable: boolean | null = null;
 
   constructor(
     private configService: ConfigService,
@@ -41,19 +126,31 @@ export class DocumentsService {
    */
   async processDocument(file: Express.Multer.File): Promise<{
     documentId: string;
-    ocrResult: any;
-    extractedData: any;
+    ocrResult: OcrResult;
+    extractedData: ExtractedFields;
     aiExtractionFailed?: boolean;
     aiErrorMessage?: string;
   }> {
     this.logger.log(`Starting document processing: ${file.originalname}`);
+    const pipelineStartedAt = Date.now();
+    const timing: Record<string, number> = {
+      uploadMs: 0,
+      createRecordMs: 0,
+      ocrMs: 0,
+      aiMs: 0,
+      saveMs: 0,
+      statusMs: 0,
+    };
 
     try {
       // Step 1: Upload file to Supabase Storage
+      let stageStartedAt = Date.now();
       const filePath = await this.uploadFileToStorage(file);
+      timing.uploadMs = Date.now() - stageStartedAt;
       this.logger.log(`File uploaded to storage: ${filePath}`);
 
       // Step 2: Create document record
+      stageStartedAt = Date.now();
       const documentId = await this.createDocumentRecord({
         fileName: file.originalname,
         filePath: filePath,
@@ -61,16 +158,22 @@ export class DocumentsService {
         mimeType: file.mimetype,
         status: 'processing',
       });
+      timing.createRecordMs = Date.now() - stageStartedAt;
       this.logger.log(`Document record created: ${documentId}`);
 
       // Step 3: Run OCR extraction
       this.logger.log('Running OCR extraction...');
-      let ocrResult;
+      let ocrResult: OcrResult;
       try {
+        stageStartedAt = Date.now();
         ocrResult = await this.ocrService.extractText(
           file.buffer,
           file.mimetype,
+          {
+            includeMetadata: false,
+          },
         );
+        timing.ocrMs = Date.now() - stageStartedAt;
         this.logger.log(
           `OCR completed: ${ocrResult.pages} pages, ${ocrResult.confidence * 100}% confidence`,
         );
@@ -81,18 +184,22 @@ export class DocumentsService {
 
       // Step 4: Run AI field extraction (with graceful degradation)
       this.logger.log('Running AI field extraction...');
-      let aiResult;
+      let aiResult: AiExtractionResult;
       let aiExtractionFailed = false;
       let aiErrorMessage = '';
 
       try {
+        stageStartedAt = Date.now();
         aiResult = await this.extractionService.extractMedicalFields(
           ocrResult.text,
+          { fileName: file.originalname },
         );
+        timing.aiMs = Date.now() - stageStartedAt;
         this.logger.log(
           `AI extraction completed: ${aiResult.extractedFields.patientName}`,
         );
       } catch (error) {
+        timing.aiMs = Date.now() - stageStartedAt;
         aiExtractionFailed = true;
         aiErrorMessage = error.message;
         this.logger.warn(
@@ -138,16 +245,22 @@ export class DocumentsService {
       }
 
       // Step 5: Save extracted data to database
+      stageStartedAt = Date.now();
       const extractedDataId = await this.saveExtractedData(
         documentId,
-        ocrResult,
         aiResult,
       );
+      timing.saveMs = Date.now() - stageStartedAt;
       this.logger.log(`Extracted data saved: ${extractedDataId}`);
 
       // Step 6: Update document status to 'review'
+      stageStartedAt = Date.now();
       await this.updateDocumentStatus(documentId, 'review');
+      timing.statusMs = Date.now() - stageStartedAt;
       this.logger.log('Document status updated to review');
+      this.logger.log(
+        `Processing timing (ms): upload=${timing.uploadMs}, create=${timing.createRecordMs}, ocr=${timing.ocrMs}, ai=${timing.aiMs}, save=${timing.saveMs}, status=${timing.statusMs}, total=${Date.now() - pipelineStartedAt}`,
+      );
 
       return {
         documentId,
@@ -240,50 +353,370 @@ export class DocumentsService {
     return dateStr;
   }
 
+  private normalizeOptionalText(
+    value: string | null | undefined,
+  ): string | null {
+    if (typeof value !== 'string') {
+      return null;
+    }
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : null;
+  }
+
+  private normalizeCategory(value: string | null | undefined): string | null {
+    const normalized = this.normalizeOptionalText(value);
+    if (!normalized) {
+      return null;
+    }
+    return CATEGORY_CANONICAL_MAP.get(normalized.toLowerCase()) ?? null;
+  }
+
+  private isStoreIn(value: string | null | undefined): value is StoreIn {
+    return value === 'Investigations' || value === 'Correspondence';
+  }
+
+  private deriveWorkflow(
+    categoryInput: string | null | undefined,
+    storeInInput: string | null | undefined,
+  ): {
+    category: string | null;
+    storeIn: StoreIn;
+    workflowType: WorkflowType;
+    requiresDoctorReview: boolean;
+    workflowReason: string;
+  } {
+    const category = this.normalizeCategory(categoryInput);
+    const requestedStoreIn = this.isStoreIn(storeInInput)
+      ? storeInInput
+      : undefined;
+
+    if (category && INVESTIGATION_CATEGORIES.has(category)) {
+      return {
+        category,
+        storeIn: 'Investigations',
+        workflowType: 'doctor_review_investigations',
+        requiresDoctorReview: true,
+        workflowReason: `Category "${category}" routes to investigations doctor review.`,
+      };
+    }
+
+    const finalStoreIn = requestedStoreIn ?? 'Correspondence';
+    const requiresDoctorReview = finalStoreIn === 'Investigations';
+    return {
+      category,
+      storeIn: finalStoreIn,
+      workflowType: requiresDoctorReview
+        ? 'doctor_review_investigations'
+        : 'standard_correspondence_review',
+      requiresDoctorReview,
+      workflowReason: requiresDoctorReview
+        ? 'Store In set to Investigations.'
+        : 'Standard correspondence workflow.',
+    };
+  }
+
+  private shouldUseWorkflowColumns(): boolean {
+    return this.workflowColumnsAvailable !== false;
+  }
+
+  private isWorkflowColumnError(
+    error: { message?: string } | null | undefined,
+  ): boolean {
+    if (!error?.message) {
+      return false;
+    }
+
+    const message = error.message.toLowerCase();
+    const mentionsWorkflowColumn =
+      message.includes('workflow_type') ||
+      message.includes('requires_doctor_review') ||
+      message.includes('workflow_reason');
+    const isColumnOrSchemaError =
+      message.includes('schema cache') ||
+      message.includes('column') ||
+      message.includes('does not exist');
+    return mentionsWorkflowColumn && isColumnOrSchemaError;
+  }
+
+  private stripWorkflowFields(
+    payload: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const next = { ...payload };
+    delete next.workflow_type;
+    delete next.requires_doctor_review;
+    delete next.workflow_reason;
+    return next;
+  }
+
+  private async updateExtractedDataRow(
+    documentId: string,
+    payload: Record<string, unknown>,
+    context: string,
+  ): Promise<void> {
+    const hasWorkflowFields =
+      Object.hasOwn(payload, 'workflow_type') ||
+      Object.hasOwn(payload, 'requires_doctor_review') ||
+      Object.hasOwn(payload, 'workflow_reason');
+    const attemptWorkflowColumns =
+      hasWorkflowFields && this.shouldUseWorkflowColumns();
+
+    let updatePayload = attemptWorkflowColumns
+      ? payload
+      : this.stripWorkflowFields(payload);
+
+    if (Object.keys(updatePayload).length === 0) {
+      return;
+    }
+
+    let { error } = await this.supabase
+      .from('extracted_data')
+      .update(updatePayload)
+      .eq('document_id', documentId);
+
+    if (error && attemptWorkflowColumns && this.isWorkflowColumnError(error)) {
+      this.workflowColumnsAvailable = false;
+      this.logger.warn(
+        'Workflow columns are missing in extracted_data. Apply migration 003_review_workflow_fields.sql to enable workflow metadata.',
+      );
+
+      updatePayload = this.stripWorkflowFields(payload);
+      if (Object.keys(updatePayload).length === 0) {
+        return;
+      }
+
+      ({ error } = await this.supabase
+        .from('extracted_data')
+        .update(updatePayload)
+        .eq('document_id', documentId));
+    } else if (!error && attemptWorkflowColumns) {
+      this.workflowColumnsAvailable = true;
+    }
+
+    if (error) {
+      throw new Error(`Failed to ${context}: ${error.message}`);
+    }
+  }
+
+  private async getExtractedDataSnapshot(
+    documentId: string,
+  ): Promise<ExtractedDataSnapshot> {
+    const baseSelect =
+      'id,document_id,patient_name,report_date,subject,source_contact,store_in,store_in_confidence,assigned_doctor,category,created_at';
+    const workflowSelect =
+      'id,document_id,patient_name,report_date,subject,source_contact,store_in,store_in_confidence,assigned_doctor,category,workflow_type,requires_doctor_review,workflow_reason,created_at';
+
+    const selectWithWorkflow = this.shouldUseWorkflowColumns();
+
+    let { data, error } = await this.supabase
+      .from('extracted_data')
+      .select(selectWithWorkflow ? workflowSelect : baseSelect)
+      .eq('document_id', documentId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error && selectWithWorkflow && this.isWorkflowColumnError(error)) {
+      this.workflowColumnsAvailable = false;
+      this.logger.warn(
+        'Workflow columns are missing in extracted_data. Apply migration 003_review_workflow_fields.sql to enable workflow metadata.',
+      );
+
+      ({ data, error } = await this.supabase
+        .from('extracted_data')
+        .select(baseSelect)
+        .eq('document_id', documentId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle());
+    } else if (!error && selectWithWorkflow) {
+      this.workflowColumnsAvailable = true;
+    }
+
+    if (error) {
+      throw new Error(`Failed to load extracted data: ${error.message}`);
+    }
+
+    if (!data) {
+      throw new Error(
+        `Extracted data not found for document ${documentId}. Process the document first.`,
+      );
+    }
+
+    const row = data as unknown as Record<string, unknown>;
+
+    return {
+      ...(data as unknown as ExtractedDataSnapshot),
+      workflow_type:
+        typeof row.workflow_type === 'string'
+          ? (row.workflow_type as WorkflowType)
+          : null,
+      requires_doctor_review:
+        typeof row.requires_doctor_review === 'boolean'
+          ? row.requires_doctor_review
+          : null,
+      workflow_reason:
+        typeof row.workflow_reason === 'string' ? row.workflow_reason : null,
+    };
+  }
+
+  private ensureRequiredSevenFields(snapshot: ExtractedDataSnapshot): void {
+    const requiredFields = [
+      ['patient_name', snapshot.patient_name],
+      ['report_date', snapshot.report_date],
+      ['subject', snapshot.subject],
+      ['source_contact', snapshot.source_contact],
+      ['store_in', snapshot.store_in],
+      ['assigned_doctor', snapshot.assigned_doctor],
+      ['category', snapshot.category],
+    ] as const;
+
+    for (const [field, value] of requiredFields) {
+      const normalized = this.normalizeOptionalText(
+        typeof value === 'string' ? value : null,
+      );
+      if (
+        !normalized &&
+        value !== 'Investigations' &&
+        value !== 'Correspondence'
+      ) {
+        throw new Error(`Cannot approve: "${field}" is missing.`);
+      }
+    }
+
+    if (!this.sanitizeDate(snapshot.report_date)) {
+      throw new Error(
+        'Cannot approve: report_date must be a valid YYYY-MM-DD.',
+      );
+    }
+
+    if (!this.isStoreIn(snapshot.store_in)) {
+      throw new Error(
+        'Cannot approve: store_in must be Investigations or Correspondence.',
+      );
+    }
+
+    if (!this.normalizeCategory(snapshot.category)) {
+      throw new Error(
+        'Cannot approve: category must be one of the allowed filing categories.',
+      );
+    }
+  }
+
+  private hasLookupMatch(value: string, options: string[]): boolean {
+    return options.some(
+      (option) => option.trim().toLowerCase() === value.trim().toLowerCase(),
+    );
+  }
+
+  private async validateLookupBackedField(
+    label: 'Patient Name' | 'Source Contact' | 'Assigned Doctor',
+    value: string | null | undefined,
+  ): Promise<void> {
+    const normalized = this.normalizeOptionalText(value);
+    if (!normalized) {
+      return;
+    }
+
+    const options =
+      label === 'Patient Name'
+        ? await this.getPatientLookup(normalized)
+        : label === 'Source Contact'
+          ? await this.getSourceContactLookup(normalized)
+          : await this.getDoctorLookup(normalized);
+
+    if (options.length === 0) {
+      throw new Error(
+        `${label} "${normalized}" is not selectable. Seed lookup values first.`,
+      );
+    }
+
+    if (!this.hasLookupMatch(normalized, options)) {
+      throw new Error(
+        `${label} "${normalized}" must be selected from lookup values.`,
+      );
+    }
+  }
+
   private async saveExtractedData(
     documentId: string,
-    ocrResult: any,
-    aiResult: any,
+    aiResult: AiExtractionResult,
   ): Promise<string> {
     const fields = aiResult.extractedFields;
+    const workflow = this.deriveWorkflow(fields.category, fields.storeIn);
+    fields.category = workflow.category;
+    fields.storeIn = workflow.storeIn;
 
-    const { data, error } = await this.supabase
+    const baseInsertPayload: Record<string, unknown> = {
+      document_id: documentId,
+      patient_name: fields.patientName,
+      patient_name_confidence: fields.patientNameConfidence,
+      report_date: this.sanitizeDate(fields.reportDate),
+      report_date_confidence: fields.reportDateConfidence,
+      subject: fields.subject,
+      subject_confidence: fields.subjectConfidence,
+      source_contact: fields.sourceContact,
+      source_contact_confidence: fields.sourceContactConfidence,
+      store_in: workflow.storeIn,
+      store_in_confidence: fields.storeInConfidence,
+      assigned_doctor: fields.assignedDoctor,
+      assigned_doctor_confidence: fields.assignedDoctorConfidence,
+      category: workflow.category,
+      category_confidence: workflow.category ? fields.categoryConfidence : 0,
+      patient_dob: this.sanitizeDate(fields.patientDob),
+      patient_dob_confidence: fields.patientDobConfidence ?? 0,
+      patient_id: fields.patientId ?? null,
+      patient_id_confidence: fields.patientIdConfidence ?? 0,
+      specialist: fields.specialist ?? null,
+      specialist_confidence: fields.specialistConfidence ?? 0,
+      facility: fields.facility ?? null,
+      facility_confidence: fields.facilityConfidence ?? 0,
+      urgency: fields.urgency ?? 'Normal',
+      urgency_confidence: fields.urgencyConfidence ?? 0.5,
+      summary: fields.summary ?? null,
+      summary_confidence: fields.summaryConfidence ?? 0,
+      raw_extraction: aiResult.rawResponse,
+    };
+
+    const insertPayloadWithWorkflow: Record<string, unknown> = {
+      ...baseInsertPayload,
+      workflow_type: workflow.workflowType,
+      requires_doctor_review: workflow.requiresDoctorReview,
+      workflow_reason: workflow.workflowReason,
+    };
+
+    const attemptWorkflowColumns = this.shouldUseWorkflowColumns();
+    let payload = attemptWorkflowColumns
+      ? insertPayloadWithWorkflow
+      : baseInsertPayload;
+
+    let { data, error } = await this.supabase
       .from('extracted_data')
-      .insert({
-        document_id: documentId,
-        patient_name: fields.patientName,
-        patient_name_confidence: fields.patientNameConfidence,
-        report_date: this.sanitizeDate(fields.reportDate),
-        report_date_confidence: fields.reportDateConfidence,
-        subject: fields.subject,
-        subject_confidence: fields.subjectConfidence,
-        source_contact: fields.sourceContact,
-        source_contact_confidence: fields.sourceContactConfidence,
-        store_in: fields.storeIn,
-        store_in_confidence: fields.storeInConfidence,
-        assigned_doctor: fields.assignedDoctor,
-        assigned_doctor_confidence: fields.assignedDoctorConfidence,
-        category: fields.category,
-        category_confidence: fields.categoryConfidence,
-        patient_dob: this.sanitizeDate(fields.patientDob),
-        patient_dob_confidence: fields.patientDobConfidence ?? 0,
-        patient_id: fields.patientId ?? null,
-        patient_id_confidence: fields.patientIdConfidence ?? 0,
-        specialist: fields.specialist ?? null,
-        specialist_confidence: fields.specialistConfidence ?? 0,
-        facility: fields.facility ?? null,
-        facility_confidence: fields.facilityConfidence ?? 0,
-        urgency: fields.urgency ?? 'Normal',
-        urgency_confidence: fields.urgencyConfidence ?? 0.5,
-        summary: fields.summary ?? null,
-        summary_confidence: fields.summaryConfidence ?? 0,
-        raw_extraction: aiResult.rawResponse,
-      })
+      .insert(payload)
       .select('id')
       .single();
 
+    if (error && attemptWorkflowColumns && this.isWorkflowColumnError(error)) {
+      this.workflowColumnsAvailable = false;
+      this.logger.warn(
+        'Workflow columns are missing in extracted_data. Apply migration 003_review_workflow_fields.sql to enable workflow metadata.',
+      );
+
+      payload = baseInsertPayload;
+      ({ data, error } = await this.supabase
+        .from('extracted_data')
+        .insert(payload)
+        .select('id')
+        .single());
+    } else if (!error && attemptWorkflowColumns) {
+      this.workflowColumnsAvailable = true;
+    }
+
     if (error) {
       throw new Error(`Failed to save extracted data: ${error.message}`);
+    }
+
+    if (!data) {
+      throw new Error('Failed to save extracted data: no id returned.');
     }
 
     return data.id;
@@ -328,7 +761,9 @@ export class DocumentsService {
       throw new Error(`Failed to get document: ${error.message}`);
     }
 
-    const fileSignedUrl = await this.createSignedFileUrl(data.file_path);
+    const fileSignedUrl = await this.createSignedFileUrl(
+      String(data.file_path),
+    );
 
     return {
       ...data,
@@ -374,46 +809,91 @@ export class DocumentsService {
     },
   ): Promise<void> {
     this.logger.log(`Updating extracted data for document: ${documentId}`);
+    const current = await this.getExtractedDataSnapshot(documentId);
+    const updateData: Record<string, unknown> = {};
 
-    // Build update object with snake_case field names
-    const updateData: any = {};
     if (updates.patientName !== undefined) {
-      updateData.patient_name = updates.patientName;
+      const normalized = this.normalizeOptionalText(updates.patientName);
+      await this.validateLookupBackedField('Patient Name', normalized);
+      updateData.patient_name = normalized;
       updateData.patient_name_confidence = 1.0; // User verified
     }
+
     if (updates.reportDate !== undefined) {
-      updateData.report_date = updates.reportDate;
+      const normalized = this.normalizeOptionalText(updates.reportDate);
+      const sanitized = this.sanitizeDate(normalized);
+      if (normalized && !sanitized) {
+        throw new Error('Report Date must be a valid YYYY-MM-DD date.');
+      }
+      updateData.report_date = sanitized;
       updateData.report_date_confidence = 1.0;
     }
+
     if (updates.subject !== undefined) {
-      updateData.subject = updates.subject;
+      updateData.subject = this.normalizeOptionalText(updates.subject);
       updateData.subject_confidence = 1.0;
     }
+
     if (updates.sourceContact !== undefined) {
-      updateData.source_contact = updates.sourceContact;
+      const normalized = this.normalizeOptionalText(updates.sourceContact);
+      await this.validateLookupBackedField('Source Contact', normalized);
+      updateData.source_contact = normalized;
       updateData.source_contact_confidence = 1.0;
     }
-    if (updates.storeIn !== undefined) {
-      updateData.store_in = updates.storeIn;
-      updateData.store_in_confidence = 1.0;
-    }
+
     if (updates.assignedDoctor !== undefined) {
-      updateData.assigned_doctor = updates.assignedDoctor;
+      const normalized = this.normalizeOptionalText(updates.assignedDoctor);
+      await this.validateLookupBackedField('Assigned Doctor', normalized);
+      updateData.assigned_doctor = normalized;
       updateData.assigned_doctor_confidence = 1.0;
     }
-    if (updates.category !== undefined) {
-      updateData.category = updates.category;
+
+    const requestedCategory =
+      updates.category !== undefined
+        ? this.normalizeOptionalText(updates.category)
+        : undefined;
+    if (requestedCategory !== undefined && requestedCategory !== null) {
+      const normalizedCategory = this.normalizeCategory(requestedCategory);
+      if (!normalizedCategory) {
+        throw new Error('Category must be selected from the allowed list.');
+      }
+      updateData.category = normalizedCategory;
       updateData.category_confidence = 1.0;
     }
-
-    const { error } = await this.supabase
-      .from('extracted_data')
-      .update(updateData)
-      .eq('document_id', documentId);
-
-    if (error) {
-      throw new Error(`Failed to update extracted data: ${error.message}`);
+    if (requestedCategory === null) {
+      updateData.category = null;
+      updateData.category_confidence = 0;
     }
+
+    if (updates.storeIn !== undefined && !this.isStoreIn(updates.storeIn)) {
+      throw new Error('Store In must be Investigations or Correspondence.');
+    }
+
+    const nextCategory =
+      requestedCategory !== undefined
+        ? this.normalizeCategory(requestedCategory)
+        : current.category;
+    const nextStoreInInput =
+      updates.storeIn !== undefined ? updates.storeIn : current.store_in;
+    const workflow = this.deriveWorkflow(nextCategory, nextStoreInInput);
+
+    if (updates.storeIn !== undefined || updates.category !== undefined) {
+      updateData.store_in = workflow.storeIn;
+      updateData.store_in_confidence = 1.0;
+      updateData.workflow_type = workflow.workflowType;
+      updateData.requires_doctor_review = workflow.requiresDoctorReview;
+      updateData.workflow_reason = workflow.workflowReason;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return;
+    }
+
+    await this.updateExtractedDataRow(
+      documentId,
+      updateData,
+      'update extracted data',
+    );
 
     this.logger.log('Extracted data updated successfully');
   }
@@ -423,6 +903,32 @@ export class DocumentsService {
    */
   async approveDocument(documentId: string): Promise<void> {
     this.logger.log(`Approving document: ${documentId}`);
+
+    const snapshot = await this.getExtractedDataSnapshot(documentId);
+    this.ensureRequiredSevenFields(snapshot);
+    await this.validateLookupBackedField('Patient Name', snapshot.patient_name);
+    await this.validateLookupBackedField(
+      'Source Contact',
+      snapshot.source_contact,
+    );
+    await this.validateLookupBackedField(
+      'Assigned Doctor',
+      snapshot.assigned_doctor,
+    );
+
+    const workflow = this.deriveWorkflow(snapshot.category, snapshot.store_in);
+
+    await this.updateExtractedDataRow(
+      documentId,
+      {
+        category: workflow.category,
+        store_in: workflow.storeIn,
+        workflow_type: workflow.workflowType,
+        requires_doctor_review: workflow.requiresDoctorReview,
+        workflow_reason: workflow.workflowReason,
+      },
+      'finalize review workflow',
+    );
 
     const { error } = await this.supabase
       .from('documents')
@@ -568,8 +1074,16 @@ export class DocumentsService {
       ? (data as unknown as Array<Record<string, unknown>>)
       : [];
 
+    const lookupColumn: ExtractedLookupColumn =
+      tableName === 'patients'
+        ? 'patient_name'
+        : tableName === 'doctors'
+          ? 'assigned_doctor'
+          : 'source_contact';
+
     return this.normalizeLookupValues(
       rows.map((row) => (typeof row[column] === 'string' ? row[column] : null)),
+      lookupColumn,
     );
   }
 
@@ -599,22 +1113,111 @@ export class DocumentsService {
 
     return this.normalizeLookupValues(
       rows.map((row) => (typeof row[column] === 'string' ? row[column] : null)),
+      column,
     ).slice(0, 20);
+  }
+
+  private normalizeLookupText(value: string): string {
+    return value.replace(/\s+/g, ' ').replace(/[|]/g, '').trim();
+  }
+
+  private isLikelyPersonName(
+    value: string,
+    allowDoctorPrefix: boolean,
+  ): boolean {
+    let tokens = value.split(/\s+/).filter(Boolean);
+    if (
+      allowDoctorPrefix &&
+      tokens.length > 1 &&
+      DOCTOR_PREFIX_PATTERN.test(tokens[0])
+    ) {
+      tokens = tokens.slice(1);
+    }
+
+    if (tokens.length === 0 || tokens.length > 4) {
+      return false;
+    }
+    if (tokens.some((token) => /[0-9]/.test(token))) {
+      return false;
+    }
+
+    return tokens.every((token) => NAME_TOKEN_PATTERN.test(token));
+  }
+
+  private isLookupCandidate(
+    value: string,
+    column: ExtractedLookupColumn,
+  ): boolean {
+    if (value.length < 2 || value.length > 80) {
+      return false;
+    }
+    if (/[?]/.test(value)) {
+      return false;
+    }
+    if (LOOKUP_JUNK_PATTERN.test(value) || LOOKUP_PLACEHOLDER_PATTERN.test(value)) {
+      return false;
+    }
+
+    if (column === 'patient_name') {
+      if (ORGANISATION_HINT_PATTERN.test(value)) {
+        return false;
+      }
+      return this.isLikelyPersonName(value, false);
+    }
+
+    if (column === 'assigned_doctor') {
+      return this.isLikelyPersonName(value, true);
+    }
+
+    // source_contact: allow either person-like names or organisation names.
+    if (this.isLikelyPersonName(value, true)) {
+      return true;
+    }
+
+    const tokenCount = value.split(/\s+/).filter(Boolean).length;
+    if (tokenCount === 0 || tokenCount > 8) {
+      return false;
+    }
+
+    return (
+      ORGANISATION_HINT_PATTERN.test(value) &&
+      /^[A-Za-z0-9&'().,/\- ]+$/.test(value)
+    );
+  }
+
+  private normalizeLookupCandidate(
+    rawValue: string | null | undefined,
+    column: ExtractedLookupColumn,
+  ): string | null {
+    if (typeof rawValue !== 'string') {
+      return null;
+    }
+
+    const normalized = this.normalizeLookupText(rawValue);
+    if (!normalized) {
+      return null;
+    }
+
+    return this.isLookupCandidate(normalized, column) ? normalized : null;
   }
 
   private normalizeLookupValues(
     values: Array<string | null | undefined>,
+    column: ExtractedLookupColumn,
   ): string[] {
-    const seen = new Set<string>();
+    const seen = new Map<string, string>();
     for (const rawValue of values) {
-      const value = rawValue?.trim();
+      const value = this.normalizeLookupCandidate(rawValue, column);
       if (!value) {
         continue;
       }
-      seen.add(value);
+      const key = value.toLowerCase();
+      if (!seen.has(key)) {
+        seen.set(key, value);
+      }
     }
 
-    return Array.from(seen).sort((a, b) => a.localeCompare(b));
+    return Array.from(seen.values()).sort((a, b) => a.localeCompare(b));
   }
 
   /**

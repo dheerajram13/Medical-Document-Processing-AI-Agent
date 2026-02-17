@@ -60,18 +60,6 @@ CREATE TABLE audit_log (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- PMS export log
-CREATE TABLE pms_export_log (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
-  pms_type VARCHAR(50), -- best_practice, halo_connect
-  export_status VARCHAR(50) DEFAULT 'pending', -- pending, success, failed
-  export_response JSONB,
-  exported_at TIMESTAMP,
-  error_message TEXT,
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
 -- Create indexes for performance
 CREATE INDEX idx_documents_status ON documents(status);
 CREATE INDEX idx_documents_uploaded_at ON documents(uploaded_at);
@@ -79,8 +67,6 @@ CREATE INDEX idx_extracted_data_document_id ON extracted_data(document_id);
 CREATE INDEX idx_review_queue_status ON review_queue(status);
 CREATE INDEX idx_audit_log_document_id ON audit_log(document_id);
 CREATE INDEX idx_audit_log_created_at ON audit_log(created_at);
-CREATE INDEX idx_pms_export_log_document_id ON pms_export_log(document_id);
-
 -- Create updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$

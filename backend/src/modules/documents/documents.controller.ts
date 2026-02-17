@@ -12,6 +12,16 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { DocumentsService } from './documents.service';
 
+type UpdateExtractedDataBody = {
+  patientName?: string;
+  reportDate?: string;
+  subject?: string;
+  sourceContact?: string;
+  storeIn?: 'Investigations' | 'Correspondence';
+  assignedDoctor?: string;
+  category?: string;
+};
+
 @Controller('documents')
 export class DocumentsController {
   private readonly logger = new Logger(DocumentsController.name);
@@ -47,28 +57,8 @@ export class DocumentsController {
   }
 
   /**
-   * Get document with extracted data
-   */
-  @Get(':id')
-  async getDocument(@Param('id') id: string) {
-    try {
-      const document = await this.documentsService.getDocument(id);
-
-      return {
-        success: true,
-        data: document,
-      };
-    } catch (error) {
-      this.logger.error(`Failed to get document: ${error.message}`);
-      return {
-        success: false,
-        error: error.message,
-      };
-    }
-  }
-
-  /**
    * Get all documents in review queue
+   * NOTE: Static paths must be declared before the :id wildcard param
    */
   @Get('queue/review')
   async getReviewQueue() {
@@ -149,10 +139,35 @@ export class DocumentsController {
   }
 
   /**
+   * Get document with extracted data
+   * NOTE: Wildcard :id must come after all static paths to avoid shadowing
+   */
+  @Get(':id')
+  async getDocument(@Param('id') id: string) {
+    try {
+      const document = await this.documentsService.getDocument(id);
+
+      return {
+        success: true,
+        data: document,
+      };
+    } catch (error) {
+      this.logger.error(`Failed to get document: ${error.message}`);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
    * Update extracted data (user corrections)
    */
   @Post(':id/update')
-  async updateExtractedData(@Param('id') id: string, @Body() updates: any) {
+  async updateExtractedData(
+    @Param('id') id: string,
+    @Body() updates: UpdateExtractedDataBody,
+  ) {
     this.logger.log(`Update request for document: ${id}`);
 
     try {

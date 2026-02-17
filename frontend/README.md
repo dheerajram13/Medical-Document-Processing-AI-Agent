@@ -95,7 +95,6 @@ The frontend communicates with the NestJS backend via the API client (`src/lib/a
 2. Document appears in review queue with confidence scores
 3. User reviews and edits extracted fields
 4. User approves → Document marked as completed
-5. Backend ready for PMS import
 
 ## Confidence Scoring
 

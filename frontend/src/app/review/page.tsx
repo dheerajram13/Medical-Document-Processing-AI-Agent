@@ -7,7 +7,13 @@ import { ArrowRight, InboxIcon, RefreshCw } from '@/components/ui/icons';
 import { StatusBadge, type QueueStatus } from '@/components/ui/StatusBadge';
 import { ToastStack, type ToastItem, type ToastTone } from '@/components/ui/ToastStack';
 import { api } from '@/lib/api';
-import { calculateOverallConfidence, formatDate, getConfidenceLevel } from '@/lib/utils';
+import {
+  calculateOverallConfidence,
+  DISPLAY_TIME_ZONE,
+  formatClockTime,
+  formatDate,
+  getConfidenceLevel,
+} from '@/lib/utils';
 import type { Document, ExtractedData } from '@/types';
 
 const QUEUE_POLL_INTERVAL_MS = 15000;
@@ -47,16 +53,26 @@ function confidenceBadgeClass(confidence: number): string {
   return 'confidence-low';
 }
 
+function workflowSummary(data: ExtractedData | undefined): string {
+  if (!data) {
+    return 'Workflow pending';
+  }
+  if (data.workflow_type === 'doctor_review_investigations') {
+    return 'Doctor review';
+  }
+  if (data.workflow_type === 'standard_correspondence_review') {
+    return 'Correspondence review';
+  }
+  return data.requires_doctor_review ? 'Doctor review' : 'Workflow pending';
+}
+
 function formatLastUpdated(value: Date | null): string {
   if (!value) {
     return 'Not synced yet';
   }
 
-  return new Intl.DateTimeFormat('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    second: '2-digit',
-  }).format(value);
+  const formatted = formatClockTime(value);
+  return formatted ? `${formatted} (${DISPLAY_TIME_ZONE})` : 'Not synced yet';
 }
 
 type LoadDocumentsOptions = {
@@ -323,7 +339,12 @@ export default function ReviewQueuePage() {
                         <p className="truncate font-semibold text-slate-100">{document.file_name}</p>
                         <p className="mt-0.5 truncate text-xs text-slate-300/70">{document.mime_type || 'Medical Document'}</p>
                       </div>
-                      <StatusBadge status={status} />
+                      <div>
+                        <StatusBadge status={status} />
+                        <p className="mt-1 text-[11px] text-slate-300/70">
+                          {workflowSummary(extractedData)}
+                        </p>
+                      </div>
                       <span className="status-pill border border-sky-200/28 bg-sky-500/12 text-sky-100">{fieldsCount}/7</span>
                       <span className={`status-pill ${confidenceBadgeClass(confidence)}`}>{Math.round(confidence * 100)}%</span>
                       <span className="text-xs text-slate-300/75">{formatDate(document.uploaded_at)}</span>
@@ -354,7 +375,12 @@ export default function ReviewQueuePage() {
                         <h3 className="line-clamp-2 text-sm font-semibold text-slate-100">{document.file_name}</h3>
                         <p className="mt-1 text-xs text-slate-300/70">{formatDate(document.uploaded_at)}</p>
                       </div>
-                      <StatusBadge status={status} />
+                      <div>
+                        <StatusBadge status={status} />
+                        <p className="mt-1 text-[11px] text-slate-300/70">
+                          {workflowSummary(extractedData)}
+                        </p>
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div className="rounded-xl border border-white/10 bg-slate-900/45 p-2">

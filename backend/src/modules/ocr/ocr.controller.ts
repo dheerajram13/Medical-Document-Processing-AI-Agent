@@ -24,7 +24,7 @@ export class OcrController {
       text: string;
       pages: number;
       confidence: number;
-      metadata: any;
+      metadata?: any;
     };
     error?: string;
   }> {
@@ -62,7 +62,7 @@ export class OcrController {
       text: string;
       pages: number;
       confidence: number;
-      metadata: any;
+      metadata?: any;
     };
     error?: string;
   }> {

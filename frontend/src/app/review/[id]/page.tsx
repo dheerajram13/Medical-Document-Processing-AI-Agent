@@ -29,6 +29,11 @@ type ReviewFormData = {
 type ReviewFormField = keyof ReviewFormData;
 type FormErrors = Partial<Record<ReviewFormField, string>>;
 type LookupField = 'patientName' | 'sourceContact' | 'assignedDoctor';
+type LookupState = {
+  label: string;
+  hint: string;
+  tone: 'neutral' | 'success' | 'warning' | 'error';
+};
 
 const EMPTY_FORM_DATA: ReviewFormData = {
   patientName: '',
@@ -50,11 +55,210 @@ const REQUIRED_FIELDS_FOR_APPROVAL: Array<{ field: ReviewFormField; label: strin
   { field: 'category', label: 'Category' },
 ];
 
-const LOOKUP_LIST_ID: Record<LookupField, string> = {
-  patientName: 'patient-name-options',
-  sourceContact: 'source-contact-options',
-  assignedDoctor: 'assigned-doctor-options',
+const LOOKUP_MENU_DEFAULT_STATE: Record<LookupField, boolean> = {
+  patientName: false,
+  sourceContact: false,
+  assignedDoctor: false,
 };
+
+function matchesLookupValue(value: string, options: string[]) {
+  const normalized = value.trim().toLowerCase();
+  return options.some((option) => option.trim().toLowerCase() === normalized);
+}
+
+const HIGHLIGHT_STOPWORDS = new Set([
+  'a',
+  'an',
+  'and',
+  'as',
+  'at',
+  'by',
+  'for',
+  'from',
+  'in',
+  'is',
+  'it',
+  'of',
+  'on',
+  'or',
+  'the',
+  'to',
+  'with',
+  'you',
+  'your',
+]);
+
+const NAME_TITLE_TOKENS = new Set([
+  'dr',
+  'doctor',
+  'mr',
+  'mrs',
+  'ms',
+  'miss',
+  'prof',
+  'professor',
+]);
+
+function isLikelyPersonName(value: string): boolean {
+  const normalized = value.trim();
+  if (!normalized) {
+    return false;
+  }
+
+  if (/[0-9?!:;=]/.test(normalized)) {
+    return false;
+  }
+
+  const tokens = normalized.split(/\s+/).filter(Boolean);
+  if (tokens.length === 0 || tokens.length > 4) {
+    return false;
+  }
+
+  return tokens.every((token) => /^[A-Za-z][A-Za-z'.-]*$/.test(token));
+}
+
+function tokenizeNameTerms(value: string): string[] {
+  return value
+    .split(/[\s,./-]+/g)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 2)
+    .filter((token) => /^[A-Za-z']+$/.test(token))
+    .filter((token) => !HIGHLIGHT_STOPWORDS.has(token.toLowerCase()))
+    .filter((token) => !NAME_TITLE_TOKENS.has(token.toLowerCase()));
+}
+
+function buildNameHighlightTerms(value: string): string[] {
+  if (!isLikelyPersonName(value)) {
+    return [];
+  }
+
+  const normalized = value.trim();
+  const tokens = tokenizeNameTerms(normalized);
+  if (tokens.length === 0) {
+    return [normalized];
+  }
+
+  if (tokens.length === 1) {
+    return [normalized, tokens[0]];
+  }
+
+  return [normalized, tokens[0], tokens[tokens.length - 1]];
+}
+
+function buildDateHighlightTerms(isoDate: string): string[] {
+  if (!isIsoDate(isoDate)) {
+    return [];
+  }
+
+  const [year, month, day] = isoDate.split('-');
+  const dayValue = String(Number(day));
+  const monthValue = String(Number(month));
+  const shortYear = year.slice(-2);
+
+  return [
+    isoDate,
+    `${day}/${month}/${year}`,
+    `${day}-${month}-${year}`,
+    `${day}.${month}.${year}`,
+    `${day} ${month} ${year}`,
+    `${day}/${month}/${shortYear}`,
+    `${day}-${month}-${shortYear}`,
+    `${day}.${month}.${shortYear}`,
+    `${day} ${month} ${shortYear}`,
+    `${dayValue}/${monthValue}/${year}`,
+    `${dayValue}-${monthValue}-${year}`,
+    `${dayValue}.${monthValue}.${year}`,
+    `${dayValue} ${monthValue} ${year}`,
+    `${dayValue}/${monthValue}/${shortYear}`,
+    `${dayValue}-${monthValue}-${shortYear}`,
+    `${dayValue}.${monthValue}.${shortYear}`,
+    `${dayValue} ${monthValue} ${shortYear}`,
+  ];
+}
+
+function buildSubjectHighlightTerms(value: string): string[] {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length < 3) {
+    return [];
+  }
+
+  const terms: string[] = [trimmed];
+
+  // Also extract meaningful multi-word fragments (3+ char tokens, skip stopwords)
+  const tokens = trimmed
+    .split(/[\s,/]+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 3)
+    .filter((t) => !HIGHLIGHT_STOPWORDS.has(t.toLowerCase()));
+
+  for (const token of tokens) {
+    terms.push(token);
+  }
+
+  return terms;
+}
+
+function buildPdfHighlightTerms(values: ReviewFormData): string[] {
+  const nameTerms = [
+    ...buildNameHighlightTerms(values.patientName),
+    ...buildNameHighlightTerms(values.sourceContact),
+    ...buildNameHighlightTerms(values.assignedDoctor),
+  ];
+
+  const dateTerms = buildDateHighlightTerms(values.reportDate.trim());
+  const subjectTerms = buildSubjectHighlightTerms(values.subject);
+  const allTerms = [...nameTerms, ...dateTerms, ...subjectTerms];
+  const deduped = new Map<string, string>();
+  for (const term of allTerms) {
+    const key = term.toLowerCase();
+    if (!deduped.has(key)) {
+      deduped.set(key, term);
+    }
+  }
+
+  return Array.from(deduped.values());
+}
+
+function buildLookupState(value: string, options: string[], loading: boolean): LookupState {
+  const normalized = value.trim();
+  if (!normalized) {
+    return {
+      label: 'Missing',
+      hint: 'Required before approval.',
+      tone: 'warning',
+    };
+  }
+
+  if (loading) {
+    return {
+      label: 'Checking',
+      hint: 'Searching lookup values…',
+      tone: 'neutral',
+    };
+  }
+
+  if (options.length === 0) {
+    return {
+      label: 'No lookup data',
+      hint: 'No matches returned for this query.',
+      tone: 'warning',
+    };
+  }
+
+  if (matchesLookupValue(normalized, options)) {
+    return {
+      label: 'Found',
+      hint: 'Matches a lookup value.',
+      tone: 'success',
+    };
+  }
+
+  return {
+    label: 'Not found',
+    hint: 'Select a value from the lookup list.',
+    tone: 'error',
+  };
+}
 
 function isIsoDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -93,6 +297,18 @@ function getDocumentStatusClass(status: Document['status']): string {
   return 'status-extracted';
 }
 
+function getWorkflowLabel(
+  workflowType: 'doctor_review_investigations' | 'standard_correspondence_review' | null | undefined,
+): string {
+  if (workflowType === 'doctor_review_investigations') {
+    return 'Doctor Review Workflow';
+  }
+  if (workflowType === 'standard_correspondence_review') {
+    return 'Correspondence Workflow';
+  }
+  return 'Workflow Pending';
+}
+
 export default function ReviewDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -109,6 +325,12 @@ export default function ReviewDetailPage() {
   const [patientLookupOptions, setPatientLookupOptions] = useState<string[]>([]);
   const [sourceLookupOptions, setSourceLookupOptions] = useState<string[]>([]);
   const [doctorLookupOptions, setDoctorLookupOptions] = useState<string[]>([]);
+  const [lookupLoading, setLookupLoading] = useState<Record<LookupField, boolean>>({
+    patientName: false,
+    sourceContact: false,
+    assignedDoctor: false,
+  });
+  const [lookupMenuOpen, setLookupMenuOpen] = useState<Record<LookupField, boolean>>(LOOKUP_MENU_DEFAULT_STATE);
 
   const dismissToast = useCallback((id: number) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
@@ -142,9 +364,11 @@ export default function ReviewDetailPage() {
             category: extracted.category || '',
           });
           setFieldErrors({});
+          setLookupMenuOpen(LOOKUP_MENU_DEFAULT_STATE);
         } else {
           setFormData(EMPTY_FORM_DATA);
           setFieldErrors({});
+          setLookupMenuOpen(LOOKUP_MENU_DEFAULT_STATE);
         }
       } else {
         addToast('error', 'Failed to load document', response.error || 'Please try again.');
@@ -164,6 +388,7 @@ export default function ReviewDetailPage() {
   }, [documentId, loadDocument]);
 
   const loadLookupOptions = useCallback(async (field: LookupField, query: string) => {
+    setLookupLoading((prev) => ({ ...prev, [field]: true }));
     try {
       if (field === 'patientName') {
         const response = await api.getPatientLookup(query);
@@ -188,6 +413,8 @@ export default function ReviewDetailPage() {
     } catch (error) {
       // Silent failure: review form should remain usable if lookup APIs are unavailable.
       console.warn(`Lookup fetch failed for ${field}`, error);
+    } finally {
+      setLookupLoading((prev) => ({ ...prev, [field]: false }));
     }
   }, []);
 
@@ -244,18 +471,15 @@ export default function ReviewDetailPage() {
   const validateLookupSelections = useCallback((values: ReviewFormData): FormErrors => {
     const errors: FormErrors = {};
 
-    const matchesLookup = (value: string, options: string[]) =>
-      options.some((option) => option.toLowerCase() === value.toLowerCase());
-
-    if (values.patientName && patientLookupOptions.length > 0 && !matchesLookup(values.patientName, patientLookupOptions)) {
+    if (values.patientName && patientLookupOptions.length > 0 && !matchesLookupValue(values.patientName, patientLookupOptions)) {
       errors.patientName = 'Select a patient from the search list.';
     }
 
-    if (values.sourceContact && sourceLookupOptions.length > 0 && !matchesLookup(values.sourceContact, sourceLookupOptions)) {
+    if (values.sourceContact && sourceLookupOptions.length > 0 && !matchesLookupValue(values.sourceContact, sourceLookupOptions)) {
       errors.sourceContact = 'Select a source contact from the search list.';
     }
 
-    if (values.assignedDoctor && doctorLookupOptions.length > 0 && !matchesLookup(values.assignedDoctor, doctorLookupOptions)) {
+    if (values.assignedDoctor && doctorLookupOptions.length > 0 && !matchesLookupValue(values.assignedDoctor, doctorLookupOptions)) {
       errors.assignedDoctor = 'Select a doctor from the search list.';
     }
 
@@ -273,6 +497,28 @@ export default function ReviewDetailPage() {
       return next;
     });
   };
+
+  const toggleLookupMenu = useCallback((field: LookupField, open: boolean) => {
+    setLookupMenuOpen((prev) => {
+      if (open) {
+        return {
+          patientName: field === 'patientName',
+          sourceContact: field === 'sourceContact',
+          assignedDoctor: field === 'assignedDoctor',
+        };
+      }
+      if (!prev[field]) {
+        return prev;
+      }
+      return { ...prev, [field]: false };
+    });
+  }, []);
+
+  const closeLookupMenuWithDelay = useCallback((field: LookupField) => {
+    window.setTimeout(() => {
+      toggleLookupMenu(field, false);
+    }, 120);
+  }, [toggleLookupMenu]);
 
   const handleSave = async () => {
     const normalizedData = normalizeFormData(formData);
@@ -419,6 +665,8 @@ export default function ReviewDetailPage() {
     confidence,
     error,
     options,
+    lookupState,
+    menuOpen,
     placeholder,
   }: {
     label: string;
@@ -427,41 +675,91 @@ export default function ReviewDetailPage() {
     confidence: number;
     error?: string;
     options: string[];
+    lookupState: LookupState;
+    menuOpen: boolean;
     placeholder?: string;
   }) => {
     const confidenceLevel = getConfidenceLevel(confidence).level;
     const confidenceClass =
       confidenceLevel === 'high' ? 'confidence-high' : confidenceLevel === 'medium' ? 'confidence-medium' : 'confidence-low';
+    const lookupClass =
+      lookupState.tone === 'success'
+        ? 'border border-emerald-300/40 bg-emerald-500/15 text-emerald-100'
+        : lookupState.tone === 'error'
+          ? 'border border-rose-300/45 bg-rose-500/15 text-rose-100'
+          : lookupState.tone === 'warning'
+            ? 'border border-amber-300/40 bg-amber-500/15 text-amber-100'
+            : 'border border-white/20 bg-white/5 text-slate-200';
+    const showMenu = menuOpen && options.length > 0;
+    const visibleOptions = options.slice(0, 8);
 
     return (
       <div className="mb-4">
         <div className="mb-2 flex items-center justify-between">
           <label className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-300/85">{label}</label>
-          <span className={`status-pill ${confidenceClass}`}>{Math.round(confidence * 100)}%</span>
+          <div className="flex items-center gap-2">
+            <span className={`status-pill ${lookupClass}`}>{lookupState.label}</span>
+            <span className={`status-pill ${confidenceClass}`}>{Math.round(confidence * 100)}%</span>
+          </div>
         </div>
-        <input
-          type="text"
-          list={LOOKUP_LIST_ID[field]}
-          value={value}
-          onChange={(e) => handleInputChange(field, e.target.value)}
-          placeholder={placeholder}
-          autoComplete="off"
-          aria-invalid={Boolean(error)}
-          className={`w-full rounded-xl border bg-slate-900/45 px-4 py-2.5 text-sm text-slate-100 placeholder-slate-400/60 transition focus:bg-slate-900/60 focus:outline-none focus:ring-2 ${
-            error
-              ? 'border-rose-300/45 focus:border-rose-300/60 focus:ring-rose-300/20'
-              : 'border-white/15 focus:border-sky-200/40 focus:ring-sky-300/30'
-          }`}
-        />
-        <datalist id={LOOKUP_LIST_ID[field]}>
-          {options.map((option) => (
-            <option key={option} value={option} />
-          ))}
-        </datalist>
+        <div className="relative">
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => {
+              handleInputChange(field, e.target.value);
+              toggleLookupMenu(field, true);
+            }}
+            onFocus={() => {
+              if (options.length > 0) {
+                toggleLookupMenu(field, true);
+              }
+            }}
+            onBlur={() => closeLookupMenuWithDelay(field)}
+            placeholder={placeholder}
+            autoComplete="off"
+            aria-invalid={Boolean(error)}
+            className={`w-full rounded-xl border bg-slate-900/45 px-4 py-2.5 text-sm text-slate-100 placeholder-slate-400/60 transition focus:bg-slate-900/60 focus:outline-none focus:ring-2 ${
+              error
+                ? 'border-rose-300/45 focus:border-rose-300/60 focus:ring-rose-300/20'
+                : 'border-white/15 focus:border-sky-200/40 focus:ring-sky-300/30'
+            }`}
+          />
+          {showMenu && (
+            <div className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-30 max-h-52 overflow-y-auto rounded-xl border border-white/15 bg-slate-900/98 p-1 shadow-2xl">
+              {visibleOptions.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    handleInputChange(field, option);
+                    toggleLookupMenu(field, false);
+                  }}
+                  className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-100 transition hover:bg-sky-500/18 hover:text-sky-100"
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         {error ? (
           <p className="mt-2 text-xs text-rose-200/90">{error}</p>
         ) : (
-          <p className="mt-2 text-xs text-slate-400/80">Search and select from known values.</p>
+          <p
+            className={`mt-2 text-xs ${
+              lookupState.tone === 'success'
+                ? 'text-emerald-200/85'
+                : lookupState.tone === 'error'
+                  ? 'text-rose-200/85'
+                  : lookupState.tone === 'warning'
+                    ? 'text-amber-200/85'
+                    : 'text-slate-400/80'
+            }`}
+          >
+            {lookupState.hint}
+          </p>
         )}
       </div>
     );
@@ -514,6 +812,10 @@ export default function ReviewDetailPage() {
   const documentFileUrl = document.file_signed_url || fallbackPublicUrl;
   const statusLabel = getDocumentStatusLabel(document.status);
   const statusClass = getDocumentStatusClass(document.status);
+  const pdfHighlightTerms = buildPdfHighlightTerms(formData);
+  const patientLookupState = buildLookupState(formData.patientName, patientLookupOptions, lookupLoading.patientName);
+  const sourceLookupState = buildLookupState(formData.sourceContact, sourceLookupOptions, lookupLoading.sourceContact);
+  const doctorLookupState = buildLookupState(formData.assignedDoctor, doctorLookupOptions, lookupLoading.assignedDoctor);
 
   return (
     <div className="mesh-background mesh-noise relative min-h-screen overflow-hidden">
@@ -562,6 +864,7 @@ export default function ReviewDetailPage() {
                   key={documentFileUrl}
                   fileUrl={documentFileUrl}
                   fileName={document.file_name}
+                  highlightTerms={pdfHighlightTerms}
                 />
               ) : (
                 <div className="dropzone-glow flex h-full items-center justify-center rounded-[1.5rem] border-2 border-dashed p-10 text-center">
@@ -585,6 +888,24 @@ export default function ReviewDetailPage() {
             <div className="mb-4 rounded-xl border border-sky-200/22 bg-slate-900/45 px-3 py-2 text-xs text-slate-300/82">
               Lookup fields (Patient, Source Contact, Assigned Doctor) should be chosen from search results when available.
             </div>
+            {extractedData && (
+              <div className="mb-4 rounded-xl border border-emerald-200/24 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100/90">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-semibold">Workflow Route</span>
+                  <span className="status-pill border border-emerald-200/35 bg-emerald-500/20 text-emerald-100">
+                    {getWorkflowLabel(extractedData.workflow_type)}
+                  </span>
+                </div>
+                <p className="mt-1">
+                  Requires doctor review: {extractedData.requires_doctor_review ? 'Yes' : 'No'}
+                </p>
+                {extractedData.workflow_reason ? (
+                  <p className="mt-1 text-[11px] text-emerald-100/80">
+                    Rule: {extractedData.workflow_reason}
+                  </p>
+                ) : null}
+              </div>
+            )}
 
             {extractedData && (
               <form
@@ -600,6 +921,8 @@ export default function ReviewDetailPage() {
                   confidence={extractedData.patient_name_confidence}
                   error={fieldErrors.patientName}
                   options={patientLookupOptions}
+                  lookupState={patientLookupState}
+                  menuOpen={lookupMenuOpen.patientName}
                   placeholder="Search patient name"
                 />
 
@@ -628,6 +951,8 @@ export default function ReviewDetailPage() {
                   confidence={extractedData.source_contact_confidence}
                   error={fieldErrors.sourceContact}
                   options={sourceLookupOptions}
+                  lookupState={sourceLookupState}
+                  menuOpen={lookupMenuOpen.sourceContact}
                   placeholder="Search source contact"
                 />
 
@@ -686,6 +1011,8 @@ export default function ReviewDetailPage() {
                   confidence={extractedData.assigned_doctor_confidence}
                   error={fieldErrors.assignedDoctor}
                   options={doctorLookupOptions}
+                  lookupState={doctorLookupState}
+                  menuOpen={lookupMenuOpen.assignedDoctor}
                   placeholder="Search GP doctor"
                 />
 
@@ -706,7 +1033,13 @@ export default function ReviewDetailPage() {
                   </div>
                   <select
                     value={formData.category}
-                    onChange={(e) => handleInputChange('category', e.target.value)}
+                    onChange={(e) => {
+                      const nextCategory = e.target.value;
+                      handleInputChange('category', nextCategory);
+                      if (['Medical imaging report', 'Pathology results', 'ECG'].includes(nextCategory)) {
+                        handleInputChange('storeIn', 'Investigations');
+                      }
+                    }}
                     aria-invalid={Boolean(fieldErrors.category)}
                     className={`w-full rounded-xl border bg-slate-900/45 px-4 py-2.5 text-sm text-slate-100 transition focus:bg-slate-900/60 focus:outline-none focus:ring-2 ${
                       fieldErrors.category
