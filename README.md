@@ -28,6 +28,34 @@ These are the primary fields used for filing and review. The system also extract
 6. `assigned_doctor`
 7. `category`
 
+## Screenshots
+
+### Home
+
+![Home](images/home.png)
+
+### Upload Document
+
+![Upload Document](images/upload.png)
+
+### Document Uploaded
+
+![Document Uploaded](images/doc%20uploaded.png)
+
+### Review Queue
+
+![Review Queue](images/review%20queue.png)
+
+### Document Preview
+
+![Document Preview](images/doc%20preview1.png)
+
+### Document Preview Continue
+
+![Document Preview Continue](images/doc%20preview2.png)
+
+
+
 ## Tech Stack
 
 - Frontend: Next.js 16 + TypeScript + Tailwind
@@ -36,6 +64,7 @@ These are the primary fields used for filing and review. The system also extract
 - AI: Gemini + Claude fallback
 - Data: Supabase Postgres + Storage
 - Hosting: Vercel (frontend), Render (backend)
+
 
 ## Local Development
 
@@ -152,3 +181,4 @@ CORS_ORIGINS=https://*.vercel.app,http://localhost:3002
 - Upload -> OCR -> AI extraction -> review queue is live.
 - PDF highlight support works for selectable and scanned documents.
 - Render + Vercel production deployment is active.
+
