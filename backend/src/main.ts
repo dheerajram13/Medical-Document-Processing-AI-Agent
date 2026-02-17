@@ -12,6 +12,20 @@ function parseCorsOrigins(raw: string | undefined): string[] {
     .filter((origin) => origin.length > 0);
 }
 
+function isAllowedByPattern(origin: string, pattern: string): boolean {
+  if (!pattern.includes('*')) {
+    return origin === pattern;
+  }
+
+  // Support simple wildcard patterns like:
+  // https://*.vercel.app
+  const escaped = pattern
+    .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*/g, '.*');
+  const regex = new RegExp(`^${escaped}$`);
+  return regex.test(origin);
+}
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
@@ -26,7 +40,19 @@ async function bootstrap() {
 
   // Enable CORS for frontend
   app.enableCors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      // Allow server-to-server and same-origin requests with no Origin header.
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      const isAllowed = allowedOrigins.some((allowed) =>
+        isAllowedByPattern(origin, allowed),
+      );
+
+      callback(null, isAllowed);
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     credentials: true,
   });
