@@ -55,8 +55,8 @@ export default function Home() {
       <header className="relative z-10 border-b border-white/10 bg-slate-950/35 backdrop-blur-xl">
         <div className="content-shell flex items-center justify-between py-4">
           <Link href="/" className="text-lg font-bold tracking-tight text-slate-100">
-            Samantha
-            <span className="ml-2 text-xs font-medium text-sky-200/80">Medical Document AI</span>
+            Medical Document AI
+            <span className="ml-2 text-xs font-medium text-sky-200/80">Document Processing Platform</span>
           </Link>
           <nav className="flex items-center gap-2 text-sm">
             <Link href="/upload" className="rounded-xl border border-white/15 px-3 py-1.5 text-slate-200/85 transition hover:bg-white/10">
@@ -80,7 +80,7 @@ export default function Home() {
               <span className="gradient-text mt-2 block">Ready-to-Review Records</span>
             </h1>
             <p className="mt-5 text-base leading-relaxed text-slate-300/85 md:text-lg">
-              Samantha automates OCR and field extraction for your clinic operations team, with clear human checkpoints before final approval.
+              Medical Document AI automates OCR and field extraction for your clinic operations team, with clear human checkpoints before final approval.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">

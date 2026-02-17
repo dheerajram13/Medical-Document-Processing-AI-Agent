@@ -26,9 +26,9 @@ Utility scripts for development and deployment.
   - clone/pull repo
   - `npm ci`
   - `npm run build`
-  - PM2 restart for `samantha-api`
+  - PM2 restart for `medical-docs-api`
 
-- **nginx/samantha-api.conf** - NGINX reverse-proxy template
+- **nginx/medical-docs-api.conf** - NGINX reverse-proxy template
   - Proxies `:80` to backend `127.0.0.1:3000`
 
 ## Future Scripts

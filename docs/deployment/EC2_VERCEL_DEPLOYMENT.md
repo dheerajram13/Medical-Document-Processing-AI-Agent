@@ -51,7 +51,7 @@ chmod +x scripts/deploy_ec2_backend.sh
 
 ### 1.4 Configure NGINX reverse proxy
 ```bash
-sudo cp ~/Medical-Document-Processing-AI-Agent/scripts/nginx/samantha-api.conf /etc/nginx/conf.d/samantha-api.conf
+sudo cp ~/Medical-Document-Processing-AI-Agent/scripts/nginx/medical-docs-api.conf /etc/nginx/conf.d/medical-docs-api.conf
 sudo nginx -t
 sudo systemctl enable nginx
 sudo systemctl restart nginx
@@ -101,4 +101,3 @@ If you later add a domain + SSL for backend, switch to `https://...`.
    - save/approve/reject work
 5. Confirm backend health endpoint:
    - `GET /health` returns `{"status":"ok",...}`
-

@@ -13,12 +13,12 @@ set -euo pipefail
 # Optional environment variables:
 #   APP_DIR=/home/ec2-user/Medical-Document-Processing-AI-Agent
 #   BRANCH=main
-#   APP_NAME=samantha-api
+#   APP_NAME=medical-docs-api
 
 REPO_URL="${1:-}"
 APP_DIR="${APP_DIR:-$HOME/Medical-Document-Processing-AI-Agent}"
 BRANCH="${BRANCH:-main}"
-APP_NAME="${APP_NAME:-samantha-api}"
+APP_NAME="${APP_NAME:-medical-docs-api}"
 BACKEND_DIR="${APP_DIR}/backend"
 
 if [[ -z "${REPO_URL}" && ! -d "${APP_DIR}/.git" ]]; then
@@ -87,4 +87,3 @@ echo "Deployment complete."
 echo "Check status: pm2 status"
 echo "Check logs:   pm2 logs ${APP_NAME}"
 echo "Health:       curl http://127.0.0.1:3000/health"
-

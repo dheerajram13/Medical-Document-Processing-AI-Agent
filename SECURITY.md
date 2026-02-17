@@ -4,7 +4,7 @@
 
 ### Files to NEVER commit:
 - ✅ `.env` - Environment variables (already in .gitignore)
-- ✅ `samantha-ai-*.json` - Google service account keys (already in .gitignore)
+- ✅ `*-ai-*.json` - Google service account keys (already in .gitignore)
 - ✅ `*.pem` - AWS private keys (already in .gitignore)
 - ✅ Any file containing API keys or secrets
 
@@ -15,7 +15,7 @@
    git status
    # Should NOT show:
    # - .env
-   # - samantha-ai-487602-cd4f96219b94.json
+   # - <service-account>.json
    # - input/ folder with PDFs
    ```
 

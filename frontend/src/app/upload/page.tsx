@@ -171,8 +171,8 @@ export default function UploadPage() {
       <header className="relative z-10 border-b border-white/10 bg-slate-950/35 backdrop-blur-xl">
         <div className="content-shell flex items-center justify-between py-4">
           <Link href="/" className="text-lg font-bold tracking-tight text-slate-100">
-            Samantha
-            <span className="ml-2 text-xs font-medium text-sky-200/80">Medical Document AI</span>
+            Medical Document AI
+            <span className="ml-2 text-xs font-medium text-sky-200/80">Document Processing Platform</span>
           </Link>
           <nav className="flex items-center gap-2 text-sm">
             <Link href="/upload" className="rounded-xl border border-sky-200/40 bg-sky-500/16 px-3 py-1.5 text-sky-100">

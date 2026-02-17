@@ -1,284 +1,154 @@
 # Medical Document AI - Medical Document Processing AI Agent
 
-AI-powered system for automated extraction of medical document metadata with human review workflow.
+AI-powered system for OCR + structured extraction of medical document metadata with receptionist review before approval.
 
-## 🎯 Project Overview
+## Production Access
 
-**Medical Document AI** processes incoming medical documents (faxes, scans, emails) and automatically extracts 7 key metadata fields using AI, presenting them for human review before approval.
+- Frontend (Vercel): `https://medical-document-processing-ai-agen.vercel.app`
+- Backend API (Render): `https://medical-document-processing-ai-agent.onrender.com`
+- Backend health: `https://medical-document-processing-ai-agent.onrender.com/health`
 
-### Key Features
-- 📄 **OCR Extraction** - Azure Document Intelligence (>95% accuracy)
-- 🤖 **AI Field Extraction** - Google Gemini 2.5 Flash (90.5% accuracy)
-- 👁️ **Human Review** - Override and approve before filing
-- 📊 **Analytics Dashboard** - Accuracy tracking and audit logs
+## Core Workflow
 
----
+1. Upload PDF/DOCX document.
+2. OCR extracts text and layout metadata.
+3. AI prioritizes extraction of 7 core filing fields (and captures additional fields when available).
+4. Review queue shows confidence and extracted values.
+5. Receptionist corrects/approves/rejects.
 
-## 📋 7 Required Fields
+## Core Filing Fields (Prioritized)
 
-1. **patient_name** - Full name of the patient
-2. **report_date** - Service/procedure date (YYYY-MM-DD)
-3. **subject** - Brief procedure/test name
-4. **source_contact** - Hospital/clinic/facility name
-5. **store_in** - "Investigations" or "Correspondence"
-6. **assigned_doctor** - Referring GP doctor
-7. **category** - Document type (26 categories)
+These are the primary fields used for filing and review. The system also extracts additional metadata/clinical fields when present in the document.
 
----
+1. `patient_name`
+2. `report_date`
+3. `subject`
+4. `source_contact`
+5. `store_in` (`Investigations` | `Correspondence`)
+6. `assigned_doctor`
+7. `category`
 
-## 🏗️ Tech Stack
+## Tech Stack
 
-### Backend
-- **NestJS** - API server
-- **Supabase (Postgres)** - Database
-### Frontend
-- **Next.js 14** - React framework
-- **Tailwind CSS** - Styling
-- **React Query** - State management
-- **Shadcn/ui** - Component library
+- Frontend: Next.js 16 + TypeScript + Tailwind
+- Backend: NestJS + TypeScript
+- OCR: Azure Document Intelligence
+- AI: Gemini + Claude fallback
+- Data: Supabase Postgres + Storage
+- Hosting: Vercel (frontend), Render (backend)
 
-### AI/ML Services
-- **Azure Document Intelligence** - OCR extraction
-- **Google Gemini 2.5 Flash** - Primary AI extraction
-- **AWS Bedrock (Claude 3.5 Sonnet)** - Fallback AI
-
-### Infrastructure
-- **AWS EC2** - Backend hosting
-- **Vercel** - Frontend hosting
-- **Terraform** - Infrastructure as Code
-
----
-
-## 🚀 Quick Start
+## Local Development
 
 ### Prerequisites
-- Node.js 18+
-- Python 3.11+ (for testing scripts)
-- Git
 
-### Installation
+- Node.js 20+
+- npm
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd Medical-Document-Processing-AI-Agent
-   ```
+### Setup
 
-2. **Copy environment variables**
-   ```bash
-   cp .env.example .env
-   # Edit .env and add your API credentials
-   ```
-
-3. **Install dependencies**
-   ```bash
-   # Backend
-   cd backend
-   npm install
-
-   # Frontend
-   cd ../frontend
-   npm install
-   ```
-
-4. **Setup database**
-   ```bash
-   # Run Supabase migrations
-   npx supabase db push
-   ```
-
-5. **Start development servers**
-   ```bash
-   # Terminal 1: Backend
-   cd backend
-   npm run start:dev
-
-   # Terminal 2: Frontend
-   cd frontend
-   npm run dev -- -p 3002
-   ```
-
-6. **Access the application**
-   - Frontend: http://localhost:3002
-   - Backend API: http://localhost:3000
-
----
-
-## 📁 Project Structure
-
-```
-Medical-Document-Processing-AI-Agent/
-├── backend/                      # NestJS API server
-│   ├── src/
-│   │   ├── modules/
-│   │   │   ├── documents/           # Document upload & storage
-│   │   │   ├── ocr/                 # Azure OCR integration
-│   │   │   ├── extraction/          # AI field extraction
-│   │   │   └── (review module planned)
-│   │   ├── common/
-│   │   └── main.ts
-│   └── package.json
-├── frontend/                     # Next.js web app
-│   ├── app/
-│   ├── components/
-│   ├── lib/
-│   └── package.json
-├── supabase/                     # Database schema & migrations
-│   ├── migrations/
-│   └── seed.sql
-├── tests/                        # Test scripts
-│   ├── module-0-validation/         # Pre-implementation validation
-│   ├── backend/                     # Backend tests (future)
-│   └── frontend/                    # Frontend tests (future)
-├── scripts/                      # Utility scripts
-│   └── verify_security.sh           # Pre-commit security check
-├── docs/                         # Documentation
-│   └── module-0/                    # Module 0 validation docs
-├── output/                       # Test results (gitignored)
-├── input/                        # Sample documents (gitignored)
-├── .env                          # Environment variables (gitignored)
-├── .env.example                  # Environment template
-├── .gitignore                    # Git ignore rules
-├── SECURITY.md                   # Security guidelines
-├── plan.md                       # Implementation plan (gitignored)
-└── README.md                     # This file
-```
-
----
-
-## 🧪 Module 0: Pre-Implementation Validation
-
-**Status**: ✅ COMPLETE
-
-### Module 0.1: Document Analysis
-- ✅ Analyzed 18 sample medical documents
-- ✅ Identified extraction patterns
-- ✅ Expected accuracy: 90%+
-
-### Module 0.2: OCR Testing
-- ✅ Azure Document Intelligence tested
-- ✅ 3/3 documents processed successfully
-- ✅ OCR accuracy: >95%
-
-### Module 0.3: AI Extraction Testing
-- ✅ Google Gemini 2.5 Flash tested
-- ✅ **Average accuracy: 90.5%** (exceeds 85% target!)
-- ✅ MRI Report: 100%
-- ✅ Colonoscopy: 85.7%
-- ✅ Eye Centre Letter: 85.7%
-
-### Module 0.4: Credentials Validation
-- ✅ Azure Document Intelligence configured
-- ✅ Google Gemini API configured
-- ✅ Supabase database configured
-- ✅ Redis queue running
-
-**Result**: All validation tests passed. Ready for implementation.
-
-See [docs/module-0/MODULE_0_COMPLETE.md](docs/module-0/MODULE_0_COMPLETE.md) for detailed results.
-
----
-
-## 🔒 Security
-
-**IMPORTANT**: Never commit credentials to Git.
-
-- All API keys and secrets must be in `.env` (gitignored)
-- Use `.env.example` as template with placeholders
-- Service account JSON files are gitignored
-- See [SECURITY.md](SECURITY.md) for full guidelines
-
-### Pre-commit checklist:
-- [ ] Run `git status` - verify no `.env` files
-- [ ] Verify no `*.json` service account files
-- [ ] Check no PDF files from `input/`
-- [ ] All secrets in `.env`, not hardcoded
-
----
-
-## 📊 Accuracy Targets
-
-| Metric | Target | Achieved |
-|--------|--------|----------|
-| OCR Accuracy | >90% | **95%+** ✅ |
-| AI Extraction | >85% | **90.5%** ✅ |
-| Human Accuracy | >95% | TBD |
-| End-to-End | >90% | TBD |
-
----
-
-## 🗺️ Roadmap
-
-### Phase 1: Core MVP (48 hours)
-- [x] Module 0: Pre-implementation validation
-- [ ] Module 1: Project setup & infrastructure
-- [ ] Module 2: OCR integration
-- [ ] Module 3: AI extraction service
-- [ ] Module 4: Review workflow UI
-- [ ] Module 5: Testing & deployment
-
-### Phase 2: Production Features
-- [ ] AWS infrastructure (EC2, S3)
-- [ ] Monitoring & logging
-- [ ] Error handling & retries
-- [ ] Performance optimization
-- [ ] CI/CD pipeline
-
-### Phase 3: Advanced Features
-- [ ] Multi-tenant support
-- [ ] Advanced analytics
-- [ ] Machine learning improvements
-
----
-
-## 🧪 Testing
-
-### Run Module 0 validation tests
 ```bash
-# OCR test
-python3 tests/module-0-validation/test_ocr.py
+git clone <repository-url>
+cd Medical-Document-Processing-AI-Agent
 
-# AI extraction test (full - 3 documents)
-python3 tests/module-0-validation/test_ai_extraction_gemini_full.py
+# backend
+cd backend
+npm install
 
-# Credentials validation
-python3 tests/module-0-validation/test_credentials.py
-
-# Supabase connection
-python3 tests/module-0-validation/test_supabase_connection.py
+# frontend
+cd ../frontend
+npm install
 ```
 
-### Security check
+### Environment
+
+- Backend env: `backend/.env`
+- Frontend env: `frontend/.env.local`
+
+Minimum frontend env:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:3000
+NEXT_PUBLIC_SUPABASE_URL=https://<your-project>.supabase.co
+```
+
+Start apps:
+
 ```bash
-# Run before committing
+# terminal 1
+cd backend
+npm run start:dev
+
+# terminal 2
+cd frontend
+npm run dev -- -p 3002
+```
+
+## Deployment Notes
+
+- Backend expects `CORS_ORIGINS` (comma-separated allowlist).
+- For Vercel + local testing:
+
+```env
+CORS_ORIGINS=https://*.vercel.app,http://localhost:3002
+```
+
+- Full deployment runbook: `docs/deployment/EC2_VERCEL_DEPLOYMENT.md`
+
+## API Endpoints (Key)
+
+- `GET /health`
+- `POST /documents/process`
+- `GET /documents/queue/review`
+- `GET /documents/:id`
+- `POST /documents/:id/update`
+- `POST /documents/:id/approve`
+- `POST /documents/:id/reject`
+
+## Engineering Best Practices
+
+### SOLID and Design
+
+- Keep OCR, extraction, and document workflows in separate modules/services.
+- Keep controller methods thin; business logic belongs in services.
+- Use typed interfaces for DTOs and extracted payloads.
+- Add small helper methods for normalization/validation rather than duplicating logic.
+
+### Logging
+
+- Use structured stage logging for processing timing (`upload`, `ocr`, `ai`, `save`, `status`).
+- Avoid logging secrets or raw credentials.
+- Log CORS allowlist and blocked origins in production for faster incident diagnosis.
+
+### Validation and Safety
+
+- Validate required review fields before approval.
+- Validate lookup-backed fields against available lookup values.
+- Keep date parsing strict (`YYYY-MM-DD` with calendar validation).
+
+### Reusability and Maintainability
+
+- Centralize constants and regex patterns used across extraction logic.
+- Keep environment configuration in `.env.example` with placeholders only.
+- Prefer small composable functions over long controller logic.
+
+### Deployment Hygiene
+
+- Use `npm ci` in CI/deployment for reproducible installs.
+- Keep health checks (`/health`) and smoke tests in release checklist.
+- Run database migrations before production cutover.
+
+## Security
+
+- Never commit `.env` or credentials.
+- Keep Supabase service key backend-only.
+- See `SECURITY.md` and run:
+
+```bash
 ./scripts/verify_security.sh
 ```
 
----
+## Current Status
 
-## 📝 API Documentation
-
-Swagger/OpenAPI is not enabled in the current backend build.
-
----
-
-## 🤝 Contributing
-
-1. Follow security guidelines in [SECURITY.md](SECURITY.md)
-2. Never commit credentials or API keys
-3. Write tests for new features
-4. Follow existing code style
-5. Update documentation
-
----
-
-## 📄 License
-
-[Add license information]
-
----
-
-
-**Built with ❤️ for medical practice efficiency**
-
-Last Updated: 2026-02-16
+- Upload -> OCR -> AI extraction -> review queue is live.
+- PDF highlight support works for selectable and scanned documents.
+- Render + Vercel production deployment is active.

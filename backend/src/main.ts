@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 
@@ -28,6 +29,7 @@ function isAllowedByPattern(origin: string, pattern: string): boolean {
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const logger = new Logger('Bootstrap');
 
   const configuredOrigins = parseCorsOrigins(process.env.CORS_ORIGINS);
   const defaultOrigins = [
@@ -37,6 +39,7 @@ async function bootstrap() {
   ];
   const allowedOrigins =
     configuredOrigins.length > 0 ? configuredOrigins : defaultOrigins;
+  logger.log(`CORS allowlist configured: ${allowedOrigins.join(', ')}`);
 
   // Enable CORS for frontend
   app.enableCors({
@@ -50,6 +53,9 @@ async function bootstrap() {
       const isAllowed = allowedOrigins.some((allowed) =>
         isAllowedByPattern(origin, allowed),
       );
+      if (!isAllowed) {
+        logger.warn(`Blocked CORS origin: ${origin}`);
+      }
 
       callback(null, isAllowed);
     },

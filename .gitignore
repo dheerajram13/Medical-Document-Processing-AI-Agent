@@ -78,7 +78,7 @@ ENV/
 *-service-account.json
 *.json.key
 gcloud-key.json
-samantha-ai-*.json
+*-ai-*.json
 *-cd4f96219b94.json
 
 # Azure

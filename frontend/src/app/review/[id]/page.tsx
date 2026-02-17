@@ -826,8 +826,8 @@ export default function ReviewDetailPage() {
       <header className="relative z-10 border-b border-white/10 bg-slate-950/35 backdrop-blur-xl">
         <div className="content-shell-wide flex items-center justify-between py-4">
           <Link href="/" className="text-lg font-bold tracking-tight text-slate-100">
-            Samantha
-            <span className="ml-2 text-xs font-medium text-sky-200/85">Medical Document AI</span>
+            Medical Document AI
+            <span className="ml-2 text-xs font-medium text-sky-200/85">Document Processing Platform</span>
           </Link>
           <Link
             href="/review"

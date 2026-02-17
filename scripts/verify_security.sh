@@ -13,6 +13,7 @@ NC='\033[0m' # No Color
 
 PASSED=0
 FAILED=0
+SERVICE_ACCOUNT_PATTERN="*-ai-*.json"
 
 # Check 1: .env is gitignored
 echo "1. Checking if .env is gitignored..."
@@ -27,7 +28,7 @@ fi
 # Check 2: Service account JSON is gitignored
 echo ""
 echo "2. Checking if service account JSON is gitignored..."
-if git check-ignore samantha-ai-*.json > /dev/null 2>&1; then
+if git check-ignore ${SERVICE_ACCOUNT_PATTERN} > /dev/null 2>&1; then
     echo -e "   ${GREEN}✅ PASS${NC}: Service account JSON is gitignored"
     ((PASSED++))
 else
