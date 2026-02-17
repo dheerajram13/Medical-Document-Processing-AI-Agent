@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, DragEvent } from 'react';
 import { ProcessingStepper } from '@/components/upload/ProcessingStepper';
 import { FileIcon, UploadCloud } from '@/components/ui/icons';
@@ -17,21 +17,24 @@ const VALID_FILE_TYPES = [
 ];
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+const INITIAL_PROGRESS = 6;
+const MAX_SIMULATED_PROGRESS = 84;
+const REDIRECT_DELAY_MS = 250;
 
 function getStepFromProgress(progress: number, hasResult: boolean, uploading: boolean): number {
   if (hasResult) return 4;
   if (!uploading) return 1;
-  if (progress < 30) return 1;
-  if (progress < 60) return 2;
-  if (progress < 90) return 3;
+  if (progress < 25) return 1;
+  if (progress < 55) return 2;
+  if (progress < 85) return 3;
   return 4;
 }
 
 function getProgressLabel(progress: number, hasResult: boolean): string {
-  if (hasResult) return 'Processing complete. Document queued for review.';
-  if (progress < 30) return 'Uploading document...';
-  if (progress < 60) return 'Running Azure OCR extraction...';
-  if (progress < 90) return 'Extracting 7 fields with Gemini AI...';
+  if (hasResult) return 'Processing complete. Redirecting to review queue...';
+  if (progress < 25) return 'Uploading document...';
+  if (progress < 55) return 'Running Azure OCR extraction...';
+  if (progress < 85) return 'Extracting 7 fields with Gemini AI...';
   return 'Finalizing and preparing for review...';
 }
 
@@ -44,6 +47,10 @@ export default function UploadPage() {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ProcessingResult | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+
+  useEffect(() => {
+    router.prefetch('/review');
+  }, [router]);
 
   const dismissToast = useCallback((id: number) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
@@ -99,13 +106,15 @@ export default function UploadPage() {
     }
 
     setUploading(true);
-    setProgress(8);
+    setProgress(INITIAL_PROGRESS);
     setResult(null);
 
-    let currentProgress = 8;
+    let currentProgress = INITIAL_PROGRESS;
     const progressInterval = window.setInterval(() => {
-      currentProgress = Math.min(currentProgress + Math.floor(Math.random() * 10) + 5, 92);
-      setProgress(currentProgress);
+      const increment =
+        currentProgress < 25 ? Math.random() * 6 + 2 : currentProgress < 55 ? Math.random() * 4 + 1.5 : Math.random() * 2 + 0.8;
+      currentProgress = Math.min(currentProgress + increment, MAX_SIMULATED_PROGRESS);
+      setProgress(Math.round(currentProgress));
     }, 450);
 
     try {
@@ -118,7 +127,7 @@ export default function UploadPage() {
         addToast('success', 'Upload complete', 'Document processed and added to review queue.');
         window.setTimeout(() => {
           router.push('/review');
-        }, 1200);
+        }, REDIRECT_DELAY_MS);
       } else {
         const errorMessage = response.error || 'Please retry upload.';
         const isRateLimited = errorMessage.includes('429') || errorMessage.toLowerCase().includes('rate limit');

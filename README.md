@@ -126,12 +126,21 @@ CORS_ORIGINS=https://*.vercel.app,http://localhost:3002
 ## API Endpoints (Key)
 
 - `GET /health`
+- `GET /metrics` (Prometheus-compatible backend metrics)
 - `POST /documents/process`
 - `GET /documents/queue/review`
 - `GET /documents/:id`
 - `POST /documents/:id/update`
 - `POST /documents/:id/approve`
 - `POST /documents/:id/reject`
+
+## Observability
+
+- Backend now exposes Prometheus-style metrics at `/metrics`.
+- HTTP request metrics include method, normalized route, status code, and latency.
+- Document pipeline metrics include stage durations (`upload`, `create`, `ocr`, `ai`, `save`, `status`, `total`) and fallback counts.
+- Optional env flags: `METRICS_ENABLED=true`, `REQUEST_LOGGING_ENABLED=true`
+- Optional protection: set `METRICS_AUTH_TOKEN` and pass header `x-metrics-token: <token>` when scraping `/metrics`.
 
 ## Engineering Best Practices
 
@@ -181,4 +190,3 @@ CORS_ORIGINS=https://*.vercel.app,http://localhost:3002
 - Upload -> OCR -> AI extraction -> review queue is live.
 - PDF highlight support works for selectable and scanned documents.
 - Render + Vercel production deployment is active.
-

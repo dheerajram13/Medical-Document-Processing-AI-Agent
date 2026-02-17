@@ -6,6 +6,7 @@ import {
   ExtractionService,
   type ExtractedFields,
 } from '../extraction/extraction.service';
+import { ObservabilityService } from '../observability/observability.service';
 
 type ExtractedLookupColumn =
   | 'patient_name'
@@ -103,6 +104,7 @@ export class DocumentsService {
     private configService: ConfigService,
     private ocrService: OcrService,
     private extractionService: ExtractionService,
+    private observabilityService: ObservabilityService,
   ) {
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
     const supabaseKey = this.configService.get<string>('SUPABASE_SERVICE_KEY');
@@ -258,8 +260,15 @@ export class DocumentsService {
       await this.updateDocumentStatus(documentId, 'review');
       timing.statusMs = Date.now() - stageStartedAt;
       this.logger.log('Document status updated to review');
+      const totalMs = Date.now() - pipelineStartedAt;
       this.logger.log(
-        `Processing timing (ms): upload=${timing.uploadMs}, create=${timing.createRecordMs}, ocr=${timing.ocrMs}, ai=${timing.aiMs}, save=${timing.saveMs}, status=${timing.statusMs}, total=${Date.now() - pipelineStartedAt}`,
+        `Processing timing (ms): upload=${timing.uploadMs}, create=${timing.createRecordMs}, ocr=${timing.ocrMs}, ai=${timing.aiMs}, save=${timing.saveMs}, status=${timing.statusMs}, total=${totalMs}`,
+      );
+      this.observabilityService.recordDocumentPipeline(
+        timing,
+        totalMs,
+        'success',
+        aiExtractionFailed,
       );
 
       return {
@@ -274,6 +283,12 @@ export class DocumentsService {
         aiErrorMessage: aiExtractionFailed ? aiErrorMessage : undefined,
       };
     } catch (error) {
+      this.observabilityService.recordDocumentPipeline(
+        timing,
+        Date.now() - pipelineStartedAt,
+        'failed',
+        false,
+      );
       this.logger.error(
         `Document processing failed: ${error.message}`,
         error.stack,
