@@ -1,10 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  DocumentAnalysisClient,
-  AzureKeyCredential,
-  type DocumentPage,
-} from '@azure/ai-form-recognizer';
+import { JWT } from 'google-auth-library';
+import axios from 'axios';
+import * as path from 'path';
+import * as fs from 'fs';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const mammoth = require('mammoth');
+
 
 type ExtractTextOptions = {
   includeMetadata?: boolean;
@@ -14,37 +16,52 @@ type ExtractTextOptions = {
 @Injectable()
 export class OcrService {
   private readonly logger = new Logger(OcrService.name);
-  private client: DocumentAnalysisClient;
-  private readonly defaultPollIntervalMs: number;
+  private jwtClient: JWT;
+  private readonly processorUrl: string;
 
   constructor(private configService: ConfigService) {
-    const endpoint = this.configService.get<string>(
-      'AZURE_DOC_INTELLIGENCE_ENDPOINT',
+    const projectId = this.configService.get<string>('GOOGLE_CLOUD_PROJECT_ID');
+    const location =
+      this.configService.get<string>('GOOGLE_DOCUMENT_AI_LOCATION') || 'us';
+    const processorId = this.configService.get<string>(
+      'GOOGLE_DOCUMENT_AI_PROCESSOR_ID',
     );
-    const apiKey = this.configService.get<string>('AZURE_DOC_INTELLIGENCE_KEY');
+    const keyFilename = this.configService.get<string>(
+      'GOOGLE_APPLICATION_CREDENTIALS',
+    );
+    const serviceAccountJson = this.configService.get<string>(
+      'GOOGLE_SERVICE_ACCOUNT_JSON',
+    );
 
-    if (!endpoint || !apiKey) {
-      throw new Error('Azure Document Intelligence credentials not configured');
+    if (!projectId || !processorId) {
+      throw new Error(
+        'Google Document AI credentials not configured (GOOGLE_CLOUD_PROJECT_ID, GOOGLE_DOCUMENT_AI_PROCESSOR_ID)',
+      );
     }
 
-    this.client = new DocumentAnalysisClient(
-      endpoint,
-      new AzureKeyCredential(apiKey),
-    );
-    this.defaultPollIntervalMs = this.parsePositiveInt(
-      this.configService.get<string>('OCR_POLL_INTERVAL_MS'),
-      1000,
-    );
+    let serviceAccount: { client_email: string; private_key: string };
+    if (serviceAccountJson) {
+      // Render / cloud: credentials passed as JSON string env var
+      serviceAccount = JSON.parse(serviceAccountJson);
+    } else if (keyFilename) {
+      // Local dev: credentials loaded from file path
+      const resolvedKeyPath = path.resolve(process.cwd(), keyFilename);
+      serviceAccount = JSON.parse(fs.readFileSync(resolvedKeyPath, 'utf8'));
+    } else {
+      throw new Error(
+        'No Google credentials configured. Set GOOGLE_SERVICE_ACCOUNT_JSON or GOOGLE_APPLICATION_CREDENTIALS',
+      );
+    }
+    this.jwtClient = new JWT({
+      email: serviceAccount.client_email,
+      key: serviceAccount.private_key,
+      scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+    });
 
-    this.logger.log('Azure Document Intelligence client initialized');
+    this.processorUrl = `https://${location}-documentai.googleapis.com/v1/projects/${projectId}/locations/${location}/processors/${processorId}:process`;
+    this.logger.log(`Google Document AI initialized — endpoint: ${this.processorUrl}`);
   }
 
-  /**
-   * Extract text from a document using Azure Document Intelligence
-   * @param fileBuffer - The document file as a buffer
-   * @param mimeType - MIME type of the document
-   * @returns Extracted text and metadata
-   */
   async extractText(
     fileBuffer: Buffer,
     mimeType: string,
@@ -57,46 +74,58 @@ export class OcrService {
   }> {
     this.logger.log(`Starting OCR extraction for ${mimeType} document`);
 
+    // DOCX: Google Document AI doesn't support it — use mammoth
+    if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      const result = await mammoth.extractRawText({ buffer: fileBuffer });
+      return {
+        text: result.value,
+        pages: 1,
+        confidence: 0.9,
+        metadata: options.includeMetadata === false ? undefined : { model: 'mammoth', pages: [] },
+      };
+    }
+
     try {
-      const pollIntervalMs = this.resolvePollInterval(options);
-      // Use prebuilt-read model for general text extraction
-      const poller = await this.client.beginAnalyzeDocument(
-        'prebuilt-read',
-        fileBuffer,
+      const tokenResponse = await this.jwtClient.getAccessToken();
+      const token = tokenResponse.token;
+
+      const response = await axios.post(
+        this.processorUrl,
         {
-          updateIntervalInMs: pollIntervalMs,
+          rawDocument: {
+            content: fileBuffer.toString('base64'),
+            mimeType,
+          },
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
         },
       );
 
-      const result = await poller.pollUntilDone();
+      const result = response.data;
 
-      // Extract all text content
-      let fullText = '';
-      const pages = result.pages || [];
+      const document = result.document;
+      const fullText = document?.text || '';
+      const pages = document?.pages || [];
 
-      for (const page of pages) {
-        for (const line of page.lines || []) {
-          fullText += line.content + '\n';
-        }
-      }
-
-      // Calculate average confidence
       const confidences: number[] = [];
       for (const page of pages) {
-        for (const word of page.words || []) {
-          if (word.confidence !== undefined) {
-            confidences.push(word.confidence);
-          }
+        for (const line of page.lines || []) {
+          const conf = line.layout?.confidence;
+          if (conf != null) confidences.push(conf as number);
         }
       }
 
       const avgConfidence =
         confidences.length > 0
           ? confidences.reduce((a, b) => a + b, 0) / confidences.length
-          : 0;
+          : 0.9;
 
       this.logger.log(
-        `OCR completed: ${pages.length} pages, ${fullText.length} characters, ${(avgConfidence * 100).toFixed(1)}% confidence`,
+        `OCR completed: ${pages.length} pages, ${fullText.length} chars, ${(avgConfidence * 100).toFixed(1)}% confidence`,
       );
 
       return {
@@ -106,19 +135,15 @@ export class OcrService {
         metadata:
           options.includeMetadata === false
             ? undefined
-            : this.buildMetadata(pages),
+            : this.buildMetadata(document),
       };
     } catch (error) {
-      this.logger.error(`OCR extraction failed: ${error.message}`, error.stack);
-      throw new Error(`Failed to extract text: ${error.message}`);
+      const msg = error.response?.data?.error?.message || error.message;
+      this.logger.error(`OCR extraction failed: ${msg}`, error.stack);
+      throw new Error(`Failed to extract text: ${msg}`);
     }
   }
 
-  /**
-   * Extract text from a document URL
-   * @param documentUrl - URL to the document
-   * @returns Extracted text and metadata
-   */
   async extractTextFromUrl(documentUrl: string): Promise<{
     text: string;
     pages: number;
@@ -128,48 +153,16 @@ export class OcrService {
     this.logger.log(`Starting OCR extraction from URL: ${documentUrl}`);
 
     try {
-      const pollIntervalMs = this.defaultPollIntervalMs;
-      const poller = await this.client.beginAnalyzeDocumentFromUrl(
-        'prebuilt-read',
-        documentUrl,
-        {
-          updateIntervalInMs: pollIntervalMs,
-        },
-      );
+      const response = await axios.get<ArrayBuffer>(documentUrl, {
+        responseType: 'arraybuffer',
+      });
 
-      const result = await poller.pollUntilDone();
+      const contentType =
+        (response.headers['content-type'] as string) || 'application/pdf';
+      const mimeType = contentType.split(';')[0].trim();
+      const buffer = Buffer.from(response.data);
 
-      // Extract all text content
-      let fullText = '';
-      const pages = result.pages || [];
-
-      for (const page of pages) {
-        for (const line of page.lines || []) {
-          fullText += line.content + '\n';
-        }
-      }
-
-      // Calculate average confidence
-      const confidences: number[] = [];
-      for (const page of pages) {
-        for (const word of page.words || []) {
-          if (word.confidence !== undefined) {
-            confidences.push(word.confidence);
-          }
-        }
-      }
-
-      const avgConfidence =
-        confidences.length > 0
-          ? confidences.reduce((a, b) => a + b, 0) / confidences.length
-          : 0;
-
-      return {
-        text: fullText,
-        pages: pages.length,
-        confidence: avgConfidence,
-        metadata: this.buildMetadata(pages),
-      };
+      return this.extractText(buffer, mimeType, { includeMetadata: true });
     } catch (error) {
       this.logger.error(
         `OCR extraction from URL failed: ${error.message}`,
@@ -179,69 +172,8 @@ export class OcrService {
     }
   }
 
-  private parsePositiveInt(
-    value: string | undefined,
-    fallback: number,
-  ): number {
-    const parsed = Number.parseInt(String(value ?? ''), 10);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-  }
-
-  private resolvePollInterval(options: ExtractTextOptions): number {
-    if (
-      typeof options.pollIntervalMs === 'number' &&
-      Number.isFinite(options.pollIntervalMs) &&
-      options.pollIntervalMs > 0
-    ) {
-      return options.pollIntervalMs;
-    }
-    return this.defaultPollIntervalMs;
-  }
-
-  private toFiniteNumber(value: unknown): number | null {
-    if (typeof value !== 'number' || !Number.isFinite(value)) {
-      return null;
-    }
-    return value;
-  }
-
-  private normalizePolygon(
-    polygon: unknown,
-  ): Array<{ x: number; y: number }> {
-    if (!Array.isArray(polygon) || polygon.length === 0) {
-      return [];
-    }
-
-    // Azure SDK may expose polygon as [x1, y1, x2, y2, ...]
-    if (typeof polygon[0] === 'number') {
-      const points: Array<{ x: number; y: number }> = [];
-      const coords = polygon as number[];
-      for (let index = 0; index + 1 < coords.length; index += 2) {
-        const x = this.toFiniteNumber(coords[index]);
-        const y = this.toFiniteNumber(coords[index + 1]);
-        if (x === null || y === null) {
-          continue;
-        }
-        points.push({ x, y });
-      }
-      return points;
-    }
-
-    // Or as [{ x, y }, ...]
-    const points: Array<{ x: number; y: number }> = [];
-    for (const point of polygon as Array<{ x?: unknown; y?: unknown }>) {
-      const x = this.toFiniteNumber(point?.x);
-      const y = this.toFiniteNumber(point?.y);
-      if (x === null || y === null) {
-        continue;
-      }
-      points.push({ x, y });
-    }
-    return points;
-  }
-
-  private buildMetadata(pages: DocumentPage[]): {
-    model: 'prebuilt-read';
+  private buildMetadata(document: any): {
+    model: string;
     pages: Array<{
       pageNumber: number;
       width: number | null;
@@ -255,26 +187,64 @@ export class OcrService {
       }>;
     }>;
   } {
+    const pages = document?.pages || [];
+    const fullText: string = document?.text || '';
+
     return {
-      model: 'prebuilt-read',
-      pages: pages.map((page, index) => ({
-        pageNumber:
-          typeof page.pageNumber === 'number' ? page.pageNumber : index + 1,
-        width: this.toFiniteNumber(page.width),
-        height: this.toFiniteNumber(page.height),
-        unit: typeof page.unit === 'string' ? page.unit : null,
-        lines: page.lines?.length || 0,
-        words: page.words?.length || 0,
-        lineItems: (page.lines || [])
-          .map((line) => ({
-            content: line.content,
-            polygon: this.normalizePolygon(line.polygon),
-          }))
+      model: 'google-document-ai',
+      pages: pages.map((page: any) => {
+        const pageNumber = page.pageNumber ?? 1;
+        // Google returns normalizedVertices (0–1 scale).
+        // We set width=1, height=1 so the frontend percentage math
+        // (x / width * 100) becomes (x * 100) — correct for 0–1 coords.
+        const lineItems = (page.lines || [])
+          .map((line: any) => {
+            const content = this.extractTextSegment(
+              fullText,
+              line.layout?.textAnchor,
+            );
+            const polygon = this.normalizeVertices(
+              line.layout?.boundingPoly?.normalizedVertices,
+            );
+            return { content, polygon };
+          })
           .filter(
-            (line) =>
-              line.content.trim().length > 0 && line.polygon.length >= 4,
-          ),
-      })),
+            (item: any) =>
+              item.content.trim().length > 0 && item.polygon.length >= 4,
+          );
+
+        return {
+          pageNumber,
+          width: 1,
+          height: 1,
+          unit: 'normalized',
+          lines: page.lines?.length || 0,
+          words: page.tokens?.length || 0,
+          lineItems,
+        };
+      }),
     };
+  }
+
+  private extractTextSegment(fullText: string, textAnchor: any): string {
+    if (!textAnchor?.textSegments?.length) return '';
+    return textAnchor.textSegments
+      .map((seg: any) => {
+        const start = Number(seg.startIndex ?? 0);
+        const end = Number(seg.endIndex ?? 0);
+        return fullText.slice(start, end);
+      })
+      .join('')
+      .replace(/\n$/, '');
+  }
+
+  private normalizeVertices(
+    vertices: Array<{ x?: number | null; y?: number | null }> | undefined,
+  ): Array<{ x: number; y: number }> {
+    if (!Array.isArray(vertices) || vertices.length === 0) return [];
+    return vertices.map((v) => ({
+      x: typeof v.x === 'number' ? v.x : 0,
+      y: typeof v.y === 'number' ? v.y : 0,
+    }));
   }
 }

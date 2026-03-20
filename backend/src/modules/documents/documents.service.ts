@@ -180,8 +180,8 @@ export class DocumentsService {
           `OCR completed: ${ocrResult.pages} pages, ${ocrResult.confidence * 100}% confidence`,
         );
       } catch (error) {
-        this.logger.error(`Azure OCR failed: ${error.message}`);
-        throw new Error(`Azure OCR extraction failed: ${error.message}`);
+        this.logger.error(`OCR failed: ${error.message}`);
+        throw new Error(`OCR extraction failed: ${error.message}`);
       }
 
       // Step 4: Run AI field extraction (with graceful degradation)

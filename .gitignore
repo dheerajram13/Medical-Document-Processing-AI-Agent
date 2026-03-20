@@ -75,6 +75,7 @@ ENV/
 *.pem
 
 # Google Cloud
+credentials/
 *-service-account.json
 *.json.key
 gcloud-key.json
