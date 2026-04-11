@@ -1,6 +1,6 @@
 # Medical Document AI - Medical Document Processing AI Agent
 
-AI-powered system for OCR + structured extraction of medical document metadata with receptionist review before approval.
+An AI-powered system for OCR + structured extraction of medical document metadata with receptionist review before approval.
 
 ## Production Access
 
